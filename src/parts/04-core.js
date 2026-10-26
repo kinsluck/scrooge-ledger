@@ -411,9 +411,11 @@ function resolveRange() {
     var s = addDaysISO(a, -dow + off * 7);
     var e = addDaysISO(s, 6);
     var mdS = s.slice(5).replace('-', '.'), mdE = e.slice(5).replace('-', '.');
+    var yS = s.slice(0, 4), yE = e.slice(0, 4);
     return {
       from: s, to: e,
-      label: (s.slice(0, 4) === e.slice(0, 4) ? mdS : s.slice(0, 4) + '.' + mdS) + ' - ' + mdE,
+      /* 同年：2026年 10.26 - 11.01；跨年：2025年 12.29 - 2026年 01.04 */
+      label: yS + '年 ' + mdS + ' - ' + (yS === yE ? mdE : yE + '年 ' + mdE),
       short: off === 0 ? '本周' : '周'
     };
   }
