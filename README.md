@@ -6,6 +6,8 @@
 
 整个应用就是一个 HTML 文件（约 230 KB），没有任何外部依赖、没有后端、不联网也能跑。数据存在你浏览器的 `localStorage` 里。
 
+**在线直接用：<https://kinsluck.github.io/scrooge-ledger/>**
+
 ## 功能
 
 **记账**
