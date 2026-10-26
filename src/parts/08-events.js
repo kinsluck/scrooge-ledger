@@ -349,8 +349,29 @@ $('#btnMonthPick').addEventListener('click', monthPicker);
 /* ============================================================
    统计页交互
    ============================================================ */
-$('#btnStatRange').addEventListener('click', function () { openFilter(); });
 $('#btnStatFilter').addEventListener('click', function () { openFilter(); });
+
+/* 统计页顶部：周 / 月 / 年 / 全部 / 范围 */
+$$('#segRange button').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var r = b.getAttribute('data-r');
+    if (r === 'custom') { openFilter(); return; }
+    /* 切回快捷范围时要清掉自定义区间，否则 resolveRange 会一直返回自定义 */
+    S.f.from = ''; S.f.to = '';
+    S.range = r;
+    S.rangeOff = 0;
+    V.renderStats();
+  });
+});
+$('#navPrev').addEventListener('click', function () {
+  S.rangeOff = (S.rangeOff || 0) - 1;
+  V.renderStats();
+});
+$('#navNext').addEventListener('click', function () {
+  var o = (S.rangeOff || 0) + 1;
+  S.rangeOff = o > 0 ? 0 : o;
+  V.renderStats();
+});
 
 $$('#segDaily button').forEach(function (b) {
   b.addEventListener('click', function () {
@@ -436,6 +457,7 @@ $('#btnFilterApply').addEventListener('click', function () {
   S.f.to = $('#fTo').value || '';
   if (S.f.from && S.f.to && S.f.from > S.f.to) { var t = S.f.from; S.f.from = S.f.to; S.f.to = t; }
   S.range = fTmp.range;
+  S.rangeOff = 0;
   S.f.accts = fTmp.accts; S.f.cats = fTmp.cats; S.f.tags = fTmp.tags;
   closeSheet();
   V.renderStats();

@@ -154,6 +154,7 @@ var S = {
   budgets: {}, recurring: [],
   theme: 'dark',
   range: 'month', f: { from: '', to: '', accts: [], cats: [], tags: [] },
+  rangeOff: 0,
   segDaily: 'expense', gran: 'day', granUser: false,
   segCat: 'expense', donutDelta: false, donutAll: true,
   segNet: 'net',
@@ -391,24 +392,46 @@ function earliestDate() {
   return m;
 }
 function anchorKey() { return monthKey(latestDate() || todayISO()); }
+/* 周期锚点日：拿最新一条记录的日期，没有记录就用今天 */
+function anchorDate() { return latestDate() || todayISO(); }
 
-/* ---------------- 区间 ---------------- */
+/* ---------------- 区间 ----------------
+   range: week | month | last3 | year | all
+   rangeOff: 0 = 当前周期，-1 = 上一个周期（周/月/年可翻页） */
 function resolveRange() {
   if (S.f.from && S.f.to) {
     return { from: S.f.from, to: S.f.to, label: S.f.from + ' → ' + S.f.to, short: '自定义' };
   }
-  var k = anchorKey();
-  if (S.range === 'month') return { from: firstOfMonth(k), to: lastOfMonth(k), label: cnMonth(k), short: '本月' };
+  var off = S.rangeOff || 0;
+  var a = anchorDate();
+
+  if (S.range === 'week') {
+    var d = parseISO(a);
+    var dow = (d.getDay() + 6) % 7;                    /* 把周日=0 转成周一=0 */
+    var s = addDaysISO(a, -dow + off * 7);
+    var e = addDaysISO(s, 6);
+    var mdS = s.slice(5).replace('-', '.'), mdE = e.slice(5).replace('-', '.');
+    return {
+      from: s, to: e,
+      label: (s.slice(0, 4) === e.slice(0, 4) ? mdS : s.slice(0, 4) + '.' + mdS) + ' - ' + mdE,
+      short: off === 0 ? '本周' : '周'
+    };
+  }
+  if (S.range === 'month') {
+    var k = addMonthsKey(monthKey(a), off);
+    return { from: firstOfMonth(k), to: lastOfMonth(k), label: cnMonth(k), short: off === 0 ? '本月' : '月' };
+  }
   if (S.range === 'last3') {
-    var k0 = addMonthsKey(k, -2);
-    return { from: firstOfMonth(k0), to: lastOfMonth(k), label: cnMonth(k0) + ' → ' + cnMonth(k), short: '近 3 月' };
+    var k1 = addMonthsKey(monthKey(a), off);
+    var k0 = addMonthsKey(k1, -2);
+    return { from: firstOfMonth(k0), to: lastOfMonth(k1), label: cnMonth(k0) + ' → ' + cnMonth(k1), short: '近 3 月' };
   }
   if (S.range === 'year') {
-    var y = k.slice(0, 4);
-    return { from: y + '-01-01', to: y + '-12-31', label: y + ' 年', short: '本年' };
+    var y = String(+monthKey(a).slice(0, 4) + off);
+    return { from: y + '-01-01', to: y + '-12-31', label: y + ' 年', short: off === 0 ? '本年' : '年' };
   }
-  var e = earliestDate() || firstOfMonth(k);
-  return { from: e, to: lastOfMonth(k), label: '全部（' + e + ' 起）', short: '全部' };
+  var e2 = earliestDate() || firstOfMonth(monthKey(a));
+  return { from: e2, to: lastOfMonth(monthKey(a)), label: '全部（' + e2 + ' 起）', short: '全部' };
 }
 
 function matchFilter(t) {

@@ -248,8 +248,19 @@ function renderStats() {
     }
   }
 
-  $('#statRangeLabel').textContent = rg.label;
-  $('#btnStatRange').textContent = rg.short + ' ▾';
+  /* 顶部范围分段：自定义 / 近 3 月 都归到「范围」 */
+  var rk = (S.f.from && S.f.to) || S.range === 'last3' ? 'custom' : S.range;
+  $$('#segRange button').forEach(function (b) {
+    b.classList.toggle('on', b.getAttribute('data-r') === rk);
+  });
+  /* 周期导航：只有 周 / 月 / 年 可翻页 */
+  var canNav = (rk === 'week' || rk === 'month' || rk === 'year');
+  $('#rangeNav').hidden = !canNav;
+  if (canNav) {
+    $('#rangeNavLabel').textContent = rg.label;
+    $('#navNext').disabled = (S.rangeOff || 0) >= 0;
+    $('#navPrev').disabled = false;
+  }
 
   $('#sOut').textContent = fmt(s.out);
   $('#sIn').textContent = fmt(s.inc);

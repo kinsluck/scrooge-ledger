@@ -453,6 +453,8 @@ function importRows(rows, opt) {
   S.ledgerMonth = L.monthKey(L.latestDate() || L.todayISO());
   S.calKey = S.ledgerMonth;
   S.range = 'all';
+  S.rangeOff = 0;
+  S.f.from = ''; S.f.to = '';
   L.persist();
 
   return { added: added, dup: dup, cats: created.cats, accts: created.accts };

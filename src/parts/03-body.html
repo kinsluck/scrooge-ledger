@@ -66,14 +66,27 @@
   <!-- ================= 统计 ================= -->
   <section class="screen on" id="sc-stats">
     <header class="hd">
-      <div class="hd-t">统计<small id="statRangeLabel">本月</small></div>
+      <div class="hd-t">统计<small>收支全景</small></div>
       <div class="hd-r">
-        <button class="pill-btn" id="btnStatRange">本月 ▾</button>
         <button class="ico" id="btnStatExport" aria-label="导出 Excel 报告">⤓</button>
         <button class="ico" id="btnStatFilter" aria-label="筛选">⚙</button>
       </div>
     </header>
     <div class="pad">
+      <div class="range-bar">
+        <div class="seg wide" id="segRange">
+          <button data-r="week">周</button>
+          <button data-r="month" class="on">月</button>
+          <button data-r="year">年</button>
+          <button data-r="all">全部</button>
+          <button data-r="custom">范围</button>
+        </div>
+        <div class="range-nav" id="rangeNav">
+          <button class="rnav" id="navPrev" aria-label="上一周期">‹</button>
+          <b id="rangeNavLabel">—</b>
+          <button class="rnav" id="navNext" aria-label="下一周期">›</button>
+        </div>
+      </div>
       <div id="seedBanner"></div>
 
       <!-- 收支统计 -->
@@ -411,8 +424,8 @@
     <div class="field">
       <div class="fl">时间范围</div>
       <div class="seg wide" id="fRange">
+        <button data-r="week">本周</button>
         <button data-r="month">本月</button>
-        <button data-r="last3">近 3 月</button>
         <button data-r="year">本年</button>
         <button data-r="all">全部</button>
       </div>

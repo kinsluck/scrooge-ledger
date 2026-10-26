@@ -216,13 +216,41 @@ a{color:inherit;text-decoration:none}
 }
 .seg button{
   padding:0 13px;height:28px;border-radius:999px;
-  font-size:12.5px;color:var(--ink3);white-space:nowrap;
+  font-size:12.5px;color:var(--ink2);white-space:nowrap;
   transition:background .16s,color .16s;
 }
 .seg button.on{background:var(--card3);color:var(--ink);font-weight:600}
 .seg.center{display:flex;width:max-content;margin-left:auto;margin-right:auto}
 .seg.wide{display:flex;width:100%}
 .seg.wide button{flex:1;text-align:center;justify-content:center}
+
+/* ---------- 统计页：时间范围选择 ---------- */
+.range-bar{margin:0 0 11px}
+#segRange{padding:4px;border-radius:14px}
+#segRange button{height:34px;font-size:13px;border-radius:11px}
+#segRange button.on{
+  background:linear-gradient(160deg,rgba(242,201,76,.20),rgba(242,201,76,.08));
+  color:var(--gold);box-shadow:inset 0 0 0 1px rgba(242,201,76,.28);
+}
+.range-nav{
+  display:flex;align-items:center;justify-content:center;gap:16px;
+  margin-top:9px;
+}
+.range-nav[hidden]{display:none}
+.rnav{
+  width:30px;height:30px;border-radius:50%;flex:none;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--blue);color:#fff;font-size:16px;line-height:1;
+  padding-bottom:2px;
+  box-shadow:0 4px 12px rgba(91,156,245,.28);
+  transition:opacity .16s,transform .12s;
+}
+.rnav:active{transform:scale(.92)}
+.rnav:disabled{opacity:.25;box-shadow:none}
+.range-nav b{
+  font-size:13.5px;font-weight:600;color:var(--ink2);
+  min-width:118px;text-align:center;letter-spacing:.01em;
+}
 
 /* ---------- 图表容器 ---------- */
 .chart-wrap{position:relative;width:100%;touch-action:pan-y}
@@ -707,14 +735,27 @@ body.dragging::after{
   <!-- ================= 统计 ================= -->
   <section class="screen on" id="sc-stats">
     <header class="hd">
-      <div class="hd-t">统计<small id="statRangeLabel">本月</small></div>
+      <div class="hd-t">统计<small>收支全景</small></div>
       <div class="hd-r">
-        <button class="pill-btn" id="btnStatRange">本月 ▾</button>
         <button class="ico" id="btnStatExport" aria-label="导出 Excel 报告">⤓</button>
         <button class="ico" id="btnStatFilter" aria-label="筛选">⚙</button>
       </div>
     </header>
     <div class="pad">
+      <div class="range-bar">
+        <div class="seg wide" id="segRange">
+          <button data-r="week">周</button>
+          <button data-r="month" class="on">月</button>
+          <button data-r="year">年</button>
+          <button data-r="all">全部</button>
+          <button data-r="custom">范围</button>
+        </div>
+        <div class="range-nav" id="rangeNav">
+          <button class="rnav" id="navPrev" aria-label="上一周期">‹</button>
+          <b id="rangeNavLabel">—</b>
+          <button class="rnav" id="navNext" aria-label="下一周期">›</button>
+        </div>
+      </div>
       <div id="seedBanner"></div>
 
       <!-- 收支统计 -->
@@ -1052,8 +1093,8 @@ body.dragging::after{
     <div class="field">
       <div class="fl">时间范围</div>
       <div class="seg wide" id="fRange">
+        <button data-r="week">本周</button>
         <button data-r="month">本月</button>
-        <button data-r="last3">近 3 月</button>
         <button data-r="year">本年</button>
         <button data-r="all">全部</button>
       </div>
@@ -1389,6 +1430,7 @@ var S = {
   budgets: {}, recurring: [],
   theme: 'dark',
   range: 'month', f: { from: '', to: '', accts: [], cats: [], tags: [] },
+  rangeOff: 0,
   segDaily: 'expense', gran: 'day', granUser: false,
   segCat: 'expense', donutDelta: false, donutAll: true,
   segNet: 'net',
@@ -1626,24 +1668,46 @@ function earliestDate() {
   return m;
 }
 function anchorKey() { return monthKey(latestDate() || todayISO()); }
+/* 周期锚点日：拿最新一条记录的日期，没有记录就用今天 */
+function anchorDate() { return latestDate() || todayISO(); }
 
-/* ---------------- 区间 ---------------- */
+/* ---------------- 区间 ----------------
+   range: week | month | last3 | year | all
+   rangeOff: 0 = 当前周期，-1 = 上一个周期（周/月/年可翻页） */
 function resolveRange() {
   if (S.f.from && S.f.to) {
     return { from: S.f.from, to: S.f.to, label: S.f.from + ' → ' + S.f.to, short: '自定义' };
   }
-  var k = anchorKey();
-  if (S.range === 'month') return { from: firstOfMonth(k), to: lastOfMonth(k), label: cnMonth(k), short: '本月' };
+  var off = S.rangeOff || 0;
+  var a = anchorDate();
+
+  if (S.range === 'week') {
+    var d = parseISO(a);
+    var dow = (d.getDay() + 6) % 7;                    /* 把周日=0 转成周一=0 */
+    var s = addDaysISO(a, -dow + off * 7);
+    var e = addDaysISO(s, 6);
+    var mdS = s.slice(5).replace('-', '.'), mdE = e.slice(5).replace('-', '.');
+    return {
+      from: s, to: e,
+      label: (s.slice(0, 4) === e.slice(0, 4) ? mdS : s.slice(0, 4) + '.' + mdS) + ' - ' + mdE,
+      short: off === 0 ? '本周' : '周'
+    };
+  }
+  if (S.range === 'month') {
+    var k = addMonthsKey(monthKey(a), off);
+    return { from: firstOfMonth(k), to: lastOfMonth(k), label: cnMonth(k), short: off === 0 ? '本月' : '月' };
+  }
   if (S.range === 'last3') {
-    var k0 = addMonthsKey(k, -2);
-    return { from: firstOfMonth(k0), to: lastOfMonth(k), label: cnMonth(k0) + ' → ' + cnMonth(k), short: '近 3 月' };
+    var k1 = addMonthsKey(monthKey(a), off);
+    var k0 = addMonthsKey(k1, -2);
+    return { from: firstOfMonth(k0), to: lastOfMonth(k1), label: cnMonth(k0) + ' → ' + cnMonth(k1), short: '近 3 月' };
   }
   if (S.range === 'year') {
-    var y = k.slice(0, 4);
-    return { from: y + '-01-01', to: y + '-12-31', label: y + ' 年', short: '本年' };
+    var y = String(+monthKey(a).slice(0, 4) + off);
+    return { from: y + '-01-01', to: y + '-12-31', label: y + ' 年', short: off === 0 ? '本年' : '年' };
   }
-  var e = earliestDate() || firstOfMonth(k);
-  return { from: e, to: lastOfMonth(k), label: '全部（' + e + ' 起）', short: '全部' };
+  var e2 = earliestDate() || firstOfMonth(monthKey(a));
+  return { from: e2, to: lastOfMonth(monthKey(a)), label: '全部（' + e2 + ' 起）', short: '全部' };
 }
 
 function matchFilter(t) {
@@ -3379,6 +3443,8 @@ function importRows(rows, opt) {
   S.ledgerMonth = L.monthKey(L.latestDate() || L.todayISO());
   S.calKey = S.ledgerMonth;
   S.range = 'all';
+  S.rangeOff = 0;
+  S.f.from = ''; S.f.to = '';
   L.persist();
 
   return { added: added, dup: dup, cats: created.cats, accts: created.accts };
@@ -3642,8 +3708,19 @@ function renderStats() {
     }
   }
 
-  $('#statRangeLabel').textContent = rg.label;
-  $('#btnStatRange').textContent = rg.short + ' ▾';
+  /* 顶部范围分段：自定义 / 近 3 月 都归到「范围」 */
+  var rk = (S.f.from && S.f.to) || S.range === 'last3' ? 'custom' : S.range;
+  $$('#segRange button').forEach(function (b) {
+    b.classList.toggle('on', b.getAttribute('data-r') === rk);
+  });
+  /* 周期导航：只有 周 / 月 / 年 可翻页 */
+  var canNav = (rk === 'week' || rk === 'month' || rk === 'year');
+  $('#rangeNav').hidden = !canNav;
+  if (canNav) {
+    $('#rangeNavLabel').textContent = rg.label;
+    $('#navNext').disabled = (S.rangeOff || 0) >= 0;
+    $('#navPrev').disabled = false;
+  }
 
   $('#sOut').textContent = fmt(s.out);
   $('#sIn').textContent = fmt(s.inc);
@@ -5028,8 +5105,29 @@ $('#btnMonthPick').addEventListener('click', monthPicker);
 /* ============================================================
    统计页交互
    ============================================================ */
-$('#btnStatRange').addEventListener('click', function () { openFilter(); });
 $('#btnStatFilter').addEventListener('click', function () { openFilter(); });
+
+/* 统计页顶部：周 / 月 / 年 / 全部 / 范围 */
+$$('#segRange button').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var r = b.getAttribute('data-r');
+    if (r === 'custom') { openFilter(); return; }
+    /* 切回快捷范围时要清掉自定义区间，否则 resolveRange 会一直返回自定义 */
+    S.f.from = ''; S.f.to = '';
+    S.range = r;
+    S.rangeOff = 0;
+    V.renderStats();
+  });
+});
+$('#navPrev').addEventListener('click', function () {
+  S.rangeOff = (S.rangeOff || 0) - 1;
+  V.renderStats();
+});
+$('#navNext').addEventListener('click', function () {
+  var o = (S.rangeOff || 0) + 1;
+  S.rangeOff = o > 0 ? 0 : o;
+  V.renderStats();
+});
 
 $$('#segDaily button').forEach(function (b) {
   b.addEventListener('click', function () {
@@ -5115,6 +5213,7 @@ $('#btnFilterApply').addEventListener('click', function () {
   S.f.to = $('#fTo').value || '';
   if (S.f.from && S.f.to && S.f.from > S.f.to) { var t = S.f.from; S.f.from = S.f.to; S.f.to = t; }
   S.range = fTmp.range;
+  S.rangeOff = 0;
   S.f.accts = fTmp.accts; S.f.cats = fTmp.cats; S.f.tags = fTmp.tags;
   closeSheet();
   V.renderStats();
