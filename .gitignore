@@ -1,0 +1,15 @@
+# 本项目只收录账本应用本身，工作区里其他东西不要进仓库
+.workbuddy/
+build/
+占比图方案.html
+财富轨迹-净值账本.html
+配色方案-业界.html
+配色方案.html
+史高治账本.html
+
+# 临时验证产物
+_s*.png
+_st*.html
+_smoke*.html
+_probe*.html
+*.xlsx

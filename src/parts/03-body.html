@@ -1,0 +1,592 @@
+<div class="app" id="app">
+
+  <!-- ================= 账本 ================= -->
+  <section class="screen" id="sc-ledger">
+    <header class="hd">
+      <div class="hd-t" id="ledgerTitle">账本<small><i class="mini-coin"></i>史高治账本</small></div>
+      <div class="hd-r">
+        <button class="ico" id="btnLedgerSearch" aria-label="搜索">🔍</button>
+        <button class="ico" id="btnLedgerMonth" aria-label="切换月份">⋯</button>
+      </div>
+    </header>
+
+    <div class="pad">
+      <div class="card" id="ledgerHeroCard">
+        <div class="card-hd">
+          <i class="dot"></i><b id="heroMonth">本月</b>
+          <span class="card-sub" id="heroDayLeft"></span>
+          <button class="mini-btn" id="btnMonthPick">切换月</button>
+        </div>
+        <div id="ledgerHero"></div>
+        <div class="chart-wrap" id="cLedgerSpark" style="margin-top:6px"><div class="tip"></div></div>
+      </div>
+
+      <div class="card" id="ledgerListCard">
+        <div class="card-hd">
+          <i class="dot"></i><b>明细</b>
+          <span class="card-sub" id="ledgerCount"></span>
+          <div class="hd-btns">
+            <button class="mini-btn" data-ledger-filter="all">全部</button>
+            <button class="mini-btn" data-ledger-filter="expense">支出</button>
+            <button class="mini-btn" data-ledger-filter="income">收入</button>
+          </div>
+        </div>
+        <div class="searchbar" id="ledgerSearchWrap" hidden>
+          <input class="inp" id="ledgerSearch" placeholder="搜索备注、分类、金额…">
+          <button class="mini-btn" id="btnSearchClose">取消</button>
+        </div>
+        <div id="txList"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 资产 ================= -->
+  <section class="screen" id="sc-assets">
+    <header class="hd">
+      <div class="hd-t">资产<small>余额与构成</small></div>
+      <div class="hd-r">
+        <button class="ico" id="btnTransfer" aria-label="转账">⇄</button>
+        <button class="ico" id="btnAddAcct" aria-label="添加账户">＋</button>
+      </div>
+    </header>
+    <div class="pad">
+      <div class="card" id="netCard"></div>
+      <div class="card">
+        <div class="card-hd"><i class="dot"></i><b>资产构成</b><span class="card-sub">按余额</span></div>
+        <div class="chart-wrap" id="cCompose"></div>
+        <div id="composeLegend" class="legend"></div>
+      </div>
+      <div class="card">
+        <div class="card-hd"><i class="dot"></i><b>账户</b><span class="card-sub" id="acctSub"></span></div>
+        <div id="acctList"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 统计 ================= -->
+  <section class="screen on" id="sc-stats">
+    <header class="hd">
+      <div class="hd-t">统计<small id="statRangeLabel">本月</small></div>
+      <div class="hd-r">
+        <button class="pill-btn" id="btnStatRange">本月 ▾</button>
+        <button class="ico" id="btnStatExport" aria-label="导出 Excel 报告">⤓</button>
+        <button class="ico" id="btnStatFilter" aria-label="筛选">⚙</button>
+      </div>
+    </header>
+    <div class="pad">
+      <div id="seedBanner"></div>
+
+      <!-- 收支统计 -->
+      <div class="card">
+        <div class="card-hd"><i class="dot"></i><b>收支统计</b><span class="card-more">›</span></div>
+        <div class="stat-grid">
+          <div class="stat"><span class="lbl">支出 <i>›</i></span><b class="v" id="sOut">¥0.00</b></div>
+          <div class="stat"><span class="lbl">收入 <i>›</i></span><b class="v" id="sIn">¥0.00</b></div>
+          <div class="stat"><span class="lbl">结余 <i>›</i></span><b class="v" id="sNet">¥0.00</b></div>
+          <div class="stat"><span class="lbl">日均支出 <i>›</i></span><b class="v" id="sAvg">¥0.00</b></div>
+        </div>
+      </div>
+
+      <!-- 流转统计 -->
+      <div class="card">
+        <div class="card-hd"><i class="dot"></i><b>流转统计</b><span class="card-sub">信用卡还款 / 收款</span></div>
+        <div class="stat-grid">
+          <div class="stat"><span class="lbl">还款 <i>›</i></span><b class="v sm" id="sRepay">¥0.00</b></div>
+          <div class="stat"><span class="lbl">收款 <i>›</i></span><b class="v sm" id="sRecv">¥0.00</b></div>
+        </div>
+      </div>
+
+      <!-- 支出统计图 -->
+      <div class="card">
+        <div class="card-hd">
+          <i class="dot"></i><b>收支统计图</b>
+          <span class="card-sub" id="dailyAvg">平均 ¥0</span>
+          <div class="hd-btns">
+            <button class="mini-btn on" data-daily-gran="day">日</button>
+            <button class="mini-btn" data-daily-gran="week">周</button>
+            <button class="mini-btn" data-daily-gran="month">月</button>
+          </div>
+        </div>
+        <div class="chip-line"><span class="chip" id="dailyChip">—</span></div>
+        <div class="chart-wrap" id="cDaily"><div class="tip"></div></div>
+        <div class="seg center" id="segDaily">
+          <button class="on" data-k="expense">支出</button>
+          <button data-k="income">收入</button>
+          <button data-k="net">结余</button>
+        </div>
+      </div>
+
+      <div class="grid2">
+      <!-- 支出分类详情 -->
+      <div class="card">
+        <div class="card-hd">
+          <i class="dot"></i><b id="donutTitle">支出分类详情</b>
+          <div class="hd-btns">
+            <button class="mini-btn" id="btnDonutDelta">显示环比金额</button>
+            <button class="mini-btn on" id="btnDonutAll">全部分类</button>
+          </div>
+        </div>
+        <div class="chart-wrap" id="cDonut"><div class="tip"></div></div>
+        <div class="seg center" id="segCat" style="margin-top:10px">
+          <button class="on" data-k="expense">支出</button>
+          <button data-k="income">收入</button>
+        </div>
+      </div>
+
+      <!-- 分类列表 -->
+      <div class="card" id="catListCard">
+        <div class="card-hd"><i class="dot"></i><b>分类排行</b><span class="card-sub" id="catListSub"></span></div>
+        <div id="catList"></div>
+      </div>
+
+      </div>
+
+      <!-- ======= 深度洞察 ======= -->
+      <div class="sec-title">
+        <h3>深度洞察</h3><span>社区推荐的财务体检项</span>
+      </div>
+
+      <div class="grid2">
+      <!-- 月度收支 -->
+      <div class="card">
+        <div class="card-hd">
+          <i class="dot"></i><b>月度收支</b><span class="card-sub" id="monthSub"></span>
+          <div class="hd-btns"><button class="mini-btn on" id="btnMonthMode">金额</button></div>
+        </div>
+        <div class="chart-wrap" id="cMonthly"><div class="tip"></div></div>
+        <div class="legend" id="monthLegend"></div>
+      </div>
+
+      <!-- 储蓄率 + 环比 -->
+      <div class="card">
+        <div class="card-hd"><i class="dot"></i><b>储蓄率走势</b><span class="card-sub" id="saveSub"></span></div>
+        <div class="chart-wrap" id="cSave"><div class="tip"></div></div>
+        <div class="hint" style="margin-top:8px">储蓄率 =（收入 − 支出）÷ 收入。社区常用的健康线是 20%，低于 0 表示当月透支。</div>
+      </div>
+
+      </div>
+
+      <div class="grid2">
+      <!-- 日历热力 -->
+      <div class="card">
+        <div class="card-hd"><i class="dot"></i><b>支出日历</b><span class="card-sub" id="calSub"></span>
+          <div class="hd-btns">
+            <button class="mini-btn" data-cal-step="-1">‹</button>
+            <button class="mini-btn" data-cal-step="1">›</button>
+          </div>
+        </div>
+        <div class="chart-wrap" id="cCal"><div class="tip"></div></div>
+        <div class="legend" id="calLegend"></div>
+      </div>
+
+      <!-- 时段热力 -->
+      <div class="card">
+        <div class="card-hd"><i class="dot"></i><b>消费时段习惯</b><span class="card-sub">星期 × 时段</span></div>
+        <div class="chart-wrap" id="cHeat"><div class="tip"></div></div>
+        <div class="hint" style="margin-top:8px">颜色越亮代表该时段花的钱越多；能看出你的「冲动消费窗口」在哪。</div>
+      </div>
+
+      </div>
+
+      <div class="grid2">
+      <!-- 分类趋势堆叠 -->
+      <div class="card">
+        <div class="card-hd"><i class="dot"></i><b>分类趋势</b><span class="card-sub">近 6 个月 · Top 5</span></div>
+        <div class="chart-wrap" id="cStackArea"><div class="tip"></div></div>
+        <div class="legend" id="stackLegend"></div>
+      </div>
+
+      <!-- 单笔 Top -->
+      <div class="card">
+        <div class="card-hd"><i class="dot"></i><b>单笔金额 Top 5</b><span class="card-sub">本期最大支出</span></div>
+        <div id="topList"></div>
+      </div>
+
+      </div>
+
+      <!-- 预算执行 -->
+      <div class="card">
+        <div class="card-hd"><i class="dot"></i><b>预算执行</b><span class="card-sub" id="budgetSub"></span>
+          <button class="mini-btn" data-go="budget">管理</button>
+        </div>
+        <div id="budgetMini"></div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ================= 预算 ================= -->
+  <section class="screen" id="sc-budget">
+    <header class="hd">
+      <div class="hd-t">预算<small id="budgetMonthLabel"></small></div>
+      <div class="hd-r">
+        <button class="ico" id="btnBudgetEdit" aria-label="编辑预算">✎</button>
+      </div>
+    </header>
+    <div class="pad">
+      <div class="card" id="budgetHero"></div>
+      <div class="card">
+        <div class="card-hd"><i class="dot"></i><b>分类预算</b><span class="card-sub" id="catBudgetSub"></span></div>
+        <div id="catBudgets"></div>
+      </div>
+      <div class="card">
+        <div class="card-hd"><i class="dot"></i><b>固定支出</b><span class="card-sub">周期账单</span>
+          <button class="mini-btn" data-add="recurring">＋</button>
+        </div>
+        <div id="recurList"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 我的 ================= -->
+  <section class="screen" id="sc-me">
+    <header class="hd">
+      <div class="hd-t">我的<small>设置与数据</small></div>
+      <div class="hd-r"><button class="ico" id="btnTheme">◐</button></div>
+    </header>
+    <div class="pad">
+<div class="card" id="meHero"></div>
+      <div class="card">
+        <div class="card-hd"><i class="dot"></i><b>导入账单</b><span class="card-sub">xlsx / csv</span></div>
+        <div class="hint" style="margin-bottom:10px">
+          支持从记账 App 导出的「收支账单」表格（日期 / 类型 / 金额 / 一级分类 / 账户 / 备注…），
+          也支持任意包含这些列的 CSV。直接把文件拖到页面上也可以。
+        </div>
+        <button class="btn gold" id="btnImportPick">选择文件导入</button>
+        <div class="hint" style="margin-top:8px;text-align:center">解析在本地完成，文件不会被上传</div>
+        <input type="file" id="fileImport" accept=".xlsx,.xls,.csv,text/csv" hidden>
+      </div>
+
+      <div class="card">
+        <div class="card-hd"><i class="dot"></i><b>数据</b><span class="card-sub">本地存储 · 不上传</span></div>
+        <div class="kv"><span>交易条数</span><b id="dataCount">0</b></div>
+        <div class="kv"><span>数据体积</span><b id="dataSize">0 KB</b></div>
+        <div class="kv"><span>最早记录</span><b id="dataFrom">—</b></div>
+        <div class="kv"><span>存储方式</span><b id="dataWhere">—</b></div>
+        <button class="btn gold" id="btnExportXlsx" style="margin-top:12px">导出 Excel 报告（含图表）</button>
+        <div class="hint" style="margin-top:7px;text-align:center">
+          4 张图表 + 明细表 + 数据表，A4 一页装完，可直接发人或打印
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+          <button class="btn ghost" style="flex:1;min-width:120px" id="btnExportJson">导出 JSON 备份</button>
+          <button class="btn ghost" style="flex:1;min-width:120px" id="btnExportCsv">导出 CSV</button>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+          <button class="btn ghost" style="flex:1;min-width:120px" id="btnCopyJson">复制备份</button>
+          <button class="btn ghost" style="flex:1;min-width:120px" id="btnReset">恢复示例数据</button>
+        </div>
+        <button class="btn danger" id="btnWipe" style="margin-top:8px">清空示例数据，从空白开始</button>
+        <div class="hint" style="margin-top:7px;text-align:center">
+          清空交易、预算与固定支出；分类、账户和主题设置会保留
+        </div>
+      </div>
+
+
+
+      <div class="card">
+        <div class="card-hd"><i class="dot"></i><b>分类管理</b><span class="card-sub" id="mgCatSub"></span>
+          <button class="mini-btn" data-add="cat">＋ 新建</button>
+        </div>
+        <div class="seg wide" id="segMgrCat">
+          <button class="on" data-k="expense">支出分类</button>
+          <button data-k="income">收入分类</button>
+        </div>
+        <div id="catMgrList" style="margin-top:10px"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd"><i class="dot"></i><b>账户管理</b><span class="card-sub" id="mgAcctSub"></span>
+          <button class="mini-btn" data-add="acct">＋ 新建</button>
+        </div>
+        <div id="acctMgrList"></div>
+      </div>
+
+
+      <div class="card">
+        <div class="card-hd"><i class="dot"></i><b>关于</b></div>
+        <div class="quote">每一分钱，都要算清楚。</div>
+        <div class="hint">
+          史高治账本 · 单文件离线记账应用。<br>
+          名字借自唐老鸭的叔叔 —— 史高治·麦克达克，那只在金币堆里游泳、
+          把每一分钱都记得清清楚楚的苏格兰鸭子。<br><br>
+          数据只存在你这台设备的浏览器里，刷新不丢、断网可用。<br>
+          清除浏览器数据会一并清掉账本，请定期「导出备份」。
+        </div>
+        <div class="divider"></div>
+        <div class="kv"><span>版本</span><b id="appVer">—</b></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ================= 底部标签栏 ================= -->
+<nav class="tabbar" id="tabbar">
+  <button class="tab" data-tab="ledger"><i>📖</i>账本</button>
+  <button class="tab" data-tab="assets"><i>🏦</i>资产</button>
+  <button class="tab on" data-tab="stats"><i>📊</i>统计</button>
+  <button class="tab" data-tab="budget"><i>🎯</i>预算</button>
+  <button class="tab" data-tab="me"><i>⚙️</i>我的</button>
+</nav>
+
+<button class="fab" id="fabAdd" aria-label="记一笔">＋</button>
+
+<div class="backdrop" id="backdrop"></div>
+
+<!-- ================= 记一笔 / 编辑 ================= -->
+<div class="sheet" id="shTx" role="dialog" aria-modal="true" aria-label="记一笔">
+  <div class="sheet-hd">
+    <b id="txSheetTitle">记一笔</b>
+    <button class="x" data-close>✕</button>
+  </div>
+  <div class="sheet-bd">
+    <div class="type-sw" id="txTypeSw">
+      <button class="on" data-type="expense">支出</button>
+      <button data-type="income">收入</button>
+      <button data-type="transfer">转账</button>
+    </div>
+
+    <div class="amount-box">
+      <div class="lb" id="amountLb">金额</div>
+      <div class="amt blink num" id="amountView"><span class="cur">¥</span>0.00</div>
+    </div>
+
+    <div class="field" id="catField">
+      <div class="fl" id="catPickLb">分类</div>
+      <div class="cat-pick" id="catPick"></div>
+    </div>
+
+    <div class="field">
+      <div class="fl" id="acctLb">账户</div>
+      <div class="cat-pick acct-pick" id="acctPick"></div>
+    </div>
+
+    <div class="field" id="toAcctField" hidden>
+      <div class="fl">转入账户</div>
+      <select class="inp" id="toAcctSel"></select>
+    </div>
+
+    <div class="field">
+      <div class="fl">备注</div>
+      <input class="inp" id="txNote" placeholder="例如：午饭 / 打车 / 房租" maxlength="60">
+    </div>
+
+    <div style="display:flex;gap:8px">
+      <div class="field" style="flex:1">
+        <div class="fl">日期</div>
+        <input class="inp" type="date" id="txDate">
+      </div>
+      <div class="field" style="flex:1">
+        <div class="fl">时间</div>
+        <input class="inp" type="time" id="txTime">
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="fl">标签</div>
+      <input class="inp" id="txTags" placeholder="用逗号分隔，如：出差,聚餐" maxlength="60">
+    </div>
+
+  </div>
+
+  <div class="sheet-pad">
+    <div class="pad-keys" id="padKeys">
+      <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+      <button class="fn del" data-k="del">⌫</button>
+      <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+      <button class="ok" data-k="done" style="grid-row:span 3">完成</button>
+      <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+      <button data-k=".">.</button><button data-k="0">0</button><button data-k="00">00</button>
+    </div>
+    <div class="sheet-ft" style="padding:8px 0 2px">
+      <button class="btn ghost" id="btnTxCancel">取消</button>
+      <button class="btn gold" id="btnSaveTx">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 统计筛选 ================= -->
+<div class="sheet" id="shFilter" role="dialog" aria-modal="true" aria-label="筛选">
+  <div class="sheet-hd"><b>统计筛选</b><button class="x" data-close>✕</button></div>
+  <div class="sheet-bd">
+    <div class="field">
+      <div class="fl">时间范围</div>
+      <div class="seg wide" id="fRange">
+        <button data-r="month">本月</button>
+        <button data-r="last3">近 3 月</button>
+        <button data-r="year">本年</button>
+        <button data-r="all">全部</button>
+      </div>
+    </div>
+    <div class="field">
+      <div class="fl">自定义区间（留空则用上面的选项）</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input class="inp" type="date" id="fFrom">
+        <span style="color:var(--ink3)">→</span>
+        <input class="inp" type="date" id="fTo">
+      </div>
+    </div>
+    <div class="field">
+      <div class="fl">账户</div>
+      <div class="tagline" id="fAccts"></div>
+    </div>
+    <div class="field">
+      <div class="fl">分类（不选=全部）</div>
+      <div class="tagline" id="fCats"></div>
+    </div>
+    <div class="field">
+      <div class="fl">标签</div>
+      <div class="tagline" id="fTags"></div>
+    </div>
+  </div>
+  <div class="sheet-ft">
+    <button class="btn ghost" id="btnFilterReset">重置</button>
+    <button class="btn gold" id="btnFilterApply">应用</button>
+  </div>
+</div>
+
+<!-- ================= 分类编辑 ================= -->
+<div class="sheet" id="shCat" role="dialog" aria-modal="true" aria-label="分类">
+  <div class="sheet-hd"><b id="catSheetTitle">新建分类</b><button class="x" data-close>✕</button></div>
+  <div class="sheet-bd">
+    <div class="field">
+      <div class="fl">名称</div>
+      <input class="inp" id="catName" maxlength="12" placeholder="最多 12 个字">
+    </div>
+    <div class="field">
+      <div class="fl">类型</div>
+      <div class="seg wide" id="catTypeSw">
+        <button class="on" data-t="expense">支出</button>
+        <button data-t="income">收入</button>
+      </div>
+    </div>
+    <div class="field">
+      <div class="fl">图标</div>
+      <div class="tagline" id="catIcons"></div>
+    </div>
+    <div class="field">
+      <div class="fl">颜色</div>
+      <div class="tagline" id="catColors"></div>
+    </div>
+    <div class="field" id="catBudgetField">
+      <div class="fl">每月预算（可选）</div>
+      <input class="inp num" id="catBudget" type="number" min="0" step="10" placeholder="0">
+    </div>
+  </div>
+  <div class="sheet-ft">
+    <button class="btn danger" id="btnCatDel" hidden>删除</button>
+    <button class="btn gold" id="btnCatSave">保存</button>
+  </div>
+</div>
+
+<!-- ================= 账户编辑 ================= -->
+<div class="sheet" id="shAcct" role="dialog" aria-modal="true" aria-label="账户">
+  <div class="sheet-hd"><b id="acctSheetTitle">新建账户</b><button class="x" data-close>✕</button></div>
+  <div class="sheet-bd">
+    <div class="field"><div class="fl">名称</div><input class="inp" id="acctName" maxlength="14" placeholder="如 招商银行"></div>
+    <div class="field"><div class="fl">备注</div><input class="inp" id="acctSubInput" maxlength="14" placeholder="如 储蓄卡 / 零钱"></div>
+    <div class="field">
+      <div class="fl">类型</div>
+      <div class="seg wide" id="acctTypeSw">
+        <button class="on" data-t="asset">资产</button>
+        <button data-t="debt">负债</button>
+      </div>
+    </div>
+    <div class="field"><div class="fl">期初余额</div><input class="inp num" id="acctOpening" type="number" step="0.01" placeholder="0.00"></div>
+    <div class="field"><div class="fl">图标</div><div class="tagline" id="acctIcons"></div></div>
+    <div class="field"><div class="fl">颜色</div><div class="tagline" id="acctColors"></div></div>
+  </div>
+  <div class="sheet-ft">
+    <button class="btn danger" id="btnAcctDel" hidden>删除</button>
+    <button class="btn gold" id="btnAcctSave">保存</button>
+  </div>
+</div>
+
+<!-- ================= 预算编辑 ================= -->
+<div class="sheet" id="shBudget" role="dialog" aria-modal="true" aria-label="预算">
+  <div class="sheet-hd"><b id="budgetSheetTitle">设置预算</b><button class="x" data-close>✕</button></div>
+  <div class="sheet-bd">
+    <div class="field">
+      <div class="fl">月度总预算</div>
+      <input class="inp num" id="budTotal" type="number" min="0" step="100" placeholder="0">
+    </div>
+    <div class="hint" style="margin-bottom:10px">分类预算留空表示不单独限制，只受总预算约束。</div>
+    <div id="budCatInputs"></div>
+  </div>
+  <div class="sheet-ft">
+    <button class="btn ghost" data-close>取消</button>
+    <button class="btn gold" id="btnBudgetSave">保存</button>
+  </div>
+</div>
+
+<!-- ================= 固定支出编辑 ================= -->
+<div class="sheet" id="shRecur" role="dialog" aria-modal="true" aria-label="固定支出">
+  <div class="sheet-hd"><b>固定支出</b><button class="x" data-close>✕</button></div>
+  <div class="sheet-bd">
+    <div class="field"><div class="fl">名称</div><input class="inp" id="recurName" maxlength="14" placeholder="如 房租 / 会员订阅"></div>
+    <div class="field"><div class="fl">金额</div><input class="inp num" id="recurAmt" type="number" step="0.01" placeholder="0.00"></div>
+    <div class="field"><div class="fl">每月几号</div><input class="inp num" id="recurDay" type="number" min="1" max="28" placeholder="1"></div>
+    <div class="field">
+      <div class="fl">分类</div>
+      <select class="inp" id="recurCat"></select>
+    </div>
+  </div>
+  <div class="sheet-ft">
+    <button class="btn danger" id="btnRecurDel">删除</button>
+    <button class="btn gold" id="btnRecurSave">保存</button>
+  </div>
+</div>
+
+<!-- ================= 导入账单 ================= -->
+<div class="sheet" id="shImport" role="dialog" aria-modal="true" aria-label="导入账单">
+  <div class="sheet-hd"><b>导入账单</b><button class="x" data-close>✕</button></div>
+  <div class="sheet-bd">
+    <div id="impSummary" style="margin-bottom:12px"></div>
+    <div id="impPreview" style="margin-bottom:12px"></div>
+
+    <div class="field">
+      <div class="fl">导入方式</div>
+      <div class="seg wide" id="impMode" data-sel="append">
+        <button data-m="append" class="on">追加到现有</button>
+        <button data-m="replace">覆盖现有</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="fl">没有账户信息的记录，归到这个账户</div>
+      <input class="inp" id="impDefaultAcct" value="导入账户" maxlength="14">
+    </div>
+
+    <label style="display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--ink2);margin-bottom:12px">
+      <input type="checkbox" id="impDup" checked style="width:16px;height:16px;accent-color:var(--gold)">
+      跳过重复记录（同日期、同金额、同备注）
+    </label>
+
+    <div class="hint" id="impNote"></div>
+    <div class="hint" style="margin-top:8px;color:var(--ink3)">
+      提示：导入的账单不带账户余额，所以「资产」页的净值是按累计结余推算的。
+      想让净值准确，去「账户管理」把各账户的期初余额填上。
+    </div>
+  </div>
+  <div class="sheet-ft">
+    <button class="btn ghost" data-close>取消</button>
+    <button class="btn gold" id="btnImportConfirm">确认导入</button>
+  </div>
+</div>
+
+<!-- ================= 通用选项 ================= -->
+<div class="sheet" id="shPick" role="dialog" aria-modal="true" aria-label="选择">
+  <div class="sheet-hd"><b id="pickTitle">选择</b><button class="x" data-close>✕</button></div>
+  <div class="sheet-bd"><div id="pickBody"></div></div>
+  <div class="sheet-ft"><button class="btn ghost" data-close>取消</button></div>
+</div>
+
+<!-- ================= 长文本 ================= -->
+<div class="sheet" id="shText" role="dialog" aria-modal="true" aria-label="文本">
+  <div class="sheet-hd"><b id="textTitle">文本</b><button class="x" data-close>✕</button></div>
+  <div class="sheet-bd">
+    <textarea class="inp" id="textArea" style="height:44vh;font-size:11px;font-family:ui-monospace,Menlo,Consolas,monospace"></textarea>
+  </div>
+  <div class="sheet-ft"><button class="btn gold" data-close>关闭</button></div>
+</div>
+
+<div class="toast" id="toast"></div>
