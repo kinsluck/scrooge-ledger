@@ -2375,21 +2375,29 @@ function donut(wrap, items, opt) {
 
   /* 扇区 */
   items.forEach(function (it, i) {
-    var big = it.pct > 0.5;
-    var p0 = [cx + Math.cos(it.a0) * R, cy + Math.sin(it.a0) * R];
-    var p1 = [cx + Math.cos(it.a1) * R, cy + Math.sin(it.a1) * R];
-    var large = (it.a1 - it.a0) > Math.PI ? 1 : 0;
+    /* pct ≈ 100% 时起终点重合，A 命令会退化画不出东西 → 单独用「外圆 + 内圆挖洞」
+       其余情况（包括 >50% 的大扇区）走同一条标准扇形路径，large-arc 自己会处理 */
+    var whole = it.pct >= 0.9995;
     var d;
-    if (big) {
-      d = 'M' + p0[0].toFixed(2) + ',' + p0[1].toFixed(2) +
-        'A' + R + ',' + R + ' 0 1 1 ' + (cx + Math.cos(it.a0 + 0.001) * R).toFixed(2) + ',' + (cy + Math.sin(it.a0 + 0.001) * R).toFixed(2) + 'Z';
+    if (whole) {
+      d = 'M' + cx + ',' + (cy - R) +
+        'A' + R + ',' + R + ' 0 1 1 ' + cx + ',' + (cy + R) +
+        'A' + R + ',' + R + ' 0 1 1 ' + cx + ',' + (cy - R) + 'Z' +
+        'M' + cx + ',' + (cy - r0) +
+        'A' + r0 + ',' + r0 + ' 0 1 0 ' + cx + ',' + (cy + r0) +
+        'A' + r0 + ',' + r0 + ' 0 1 0 ' + cx + ',' + (cy - r0) + 'Z';
     } else {
+      var p0 = [cx + Math.cos(it.a0) * R, cy + Math.sin(it.a0) * R];
+      var p1 = [cx + Math.cos(it.a1) * R, cy + Math.sin(it.a1) * R];
+      var large = (it.a1 - it.a0) > Math.PI ? 1 : 0;
       d = 'M' + p0[0].toFixed(2) + ',' + p0[1].toFixed(2) +
         'A' + R + ',' + R + ' 0 ' + large + ' 1 ' + p1[0].toFixed(2) + ',' + p1[1].toFixed(2) +
         'L' + (cx + Math.cos(it.a1) * r0).toFixed(2) + ',' + (cy + Math.sin(it.a1) * r0).toFixed(2) +
         'A' + r0 + ',' + r0 + ' 0 ' + large + ' 0 ' + (cx + Math.cos(it.a0) * r0).toFixed(2) + ',' + (cy + Math.sin(it.a0) * r0).toFixed(2) + 'Z';
     }
-    var path = sv('path', { d: d, fill: it.color, stroke: 'var(--card)', 'stroke-width': 1.2, 'data-i': i });
+    var attrs = { d: d, fill: it.color, stroke: 'var(--card)', 'stroke-width': 1.2, 'data-i': i };
+    if (whole) attrs['fill-rule'] = 'evenodd';
+    var path = sv('path', attrs);
     path.style.transition = 'opacity .15s';
     svg.appendChild(path);
     it._path = path;
