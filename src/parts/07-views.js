@@ -63,7 +63,12 @@ function renderLedger() {
         String(t.amount).indexOf(q) >= 0;
     });
   }
+  var sortMode = S.ledgerSort === 'desc' || S.ledgerSort === 'asc' ? S.ledgerSort : '';
   shown.sort(function (a, b) {
+    if (sortMode) {
+      var d = sortMode === 'desc' ? b.amount - a.amount : a.amount - b.amount;
+      if (d) return d;
+    }
     if (a.date !== b.date) return a.date < b.date ? 1 : -1;
     return (a.time || '') < (b.time || '') ? 1 : -1;
   });
@@ -72,9 +77,21 @@ function renderLedger() {
   $$('[data-ledger-filter]').forEach(function (b) {
     b.classList.toggle('on', b.getAttribute('data-ledger-filter') === f);
   });
+  var sb = $('#btnLedgerSort');
+  if (sb) {
+    sb.classList.toggle('on', !!sortMode);
+    sb.textContent = sortMode === 'desc' ? '¥↓' : sortMode === 'asc' ? '¥↑' : '⇅';
+    sb.title = sortMode === 'desc' ? '金额：从大到小' : sortMode === 'asc' ? '金额：从小到大' : '按金额排序';
+  }
 
   if (!shown.length) {
     html($('#txList'), '<div class="empty">这个月还没有记录<br><em>点右下角 ＋ 记一笔</em></div>');
+    return;
+  }
+
+  /* 按金额排序时不按天分组（否则组间还是时间序，排序没意义），日期挪到每行副标题里 */
+  if (sortMode) {
+    html($('#txList'), shown.map(function (t) { return txRow(t, true); }).join(''));
     return;
   }
 
@@ -98,7 +115,7 @@ function renderLedger() {
   html($('#txList'), out);
 }
 
-function txRow(t) {
+function txRow(t, showDate) {
   var isTf = t.type === 'transfer';
   var c = isTf ? { icon: '⇄', color: '#5b9cf5', name: '转账' } : L.catById(t.cat);
   var a = L.acctById(t.acct);
@@ -112,6 +129,8 @@ function txRow(t) {
   if (isTf) meta.push('→ ' + L.acctById(t.toAcct).name);
   if ((t.tags || []).length) meta.push(t.tags.join(' / '));
   var time = (t.time || '').slice(0, 5);
+  /* 按金额排序时没有日期分组了，把日期放回每一行（时间仍在右侧，不重复） */
+  if (showDate) meta.unshift(t.date.slice(5).replace('-', '.'));
 
   return '<div class="tx" data-tx="' + t.id + '">' +
     '<div class="tx-ic" style="background:' + hexA(c.color, .14) + ';color:' + c.color + '">' + c.icon + '</div>' +

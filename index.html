@@ -180,7 +180,10 @@ a{color:inherit;text-decoration:none}
 .card-hd .card-sub{font-size:11px;color:var(--ink3);margin-left:2px;white-space:nowrap}
 .card-hd .card-more{margin-left:auto;color:var(--ink3);font-size:16px;line-height:1}
 .card-hd .sp{margin-left:auto}
-.card-hd .hd-btns{display:flex;gap:6px;margin-left:auto}
+.card-hd .hd-btns{display:flex;gap:6px;margin-left:auto;align-items:center}
+/* 筛选 / 排序之间的一根细竖线 */
+.hd-sep{width:1px;height:14px;background:var(--line2);flex:none;margin:0 1px}
+.sort-btn{min-width:32px;justify-content:center;padding:0 7px;font-size:12px;letter-spacing:-.5px}
 
 .mini-btn{
   height:26px;padding:0 9px;border-radius:8px;
@@ -699,6 +702,8 @@ body.dragging::after{
             <button class="mini-btn" data-ledger-filter="all">全部</button>
             <button class="mini-btn" data-ledger-filter="expense">支出</button>
             <button class="mini-btn" data-ledger-filter="income">收入</button>
+            <span class="hd-sep"></span>
+            <button class="mini-btn sort-btn" id="btnLedgerSort" title="按金额排序">⇅</button>
           </div>
         </div>
         <div class="searchbar" id="ledgerSearchWrap" hidden>
@@ -1440,6 +1445,7 @@ var S = {
   ledgerFilter: 'all',
   ledgerMonth: '',
   ledgerSearch: '',
+  ledgerSort: '',   /* '' 默认（按日期） | 'desc' 金额降序 | 'asc' 金额升序 */
   mgrType: 'expense', lastType: 'expense', isSeed: false,
   noSeed: false,
   tab: 'stats'
@@ -3534,7 +3540,12 @@ function renderLedger() {
         String(t.amount).indexOf(q) >= 0;
     });
   }
+  var sortMode = S.ledgerSort === 'desc' || S.ledgerSort === 'asc' ? S.ledgerSort : '';
   shown.sort(function (a, b) {
+    if (sortMode) {
+      var d = sortMode === 'desc' ? b.amount - a.amount : a.amount - b.amount;
+      if (d) return d;
+    }
     if (a.date !== b.date) return a.date < b.date ? 1 : -1;
     return (a.time || '') < (b.time || '') ? 1 : -1;
   });
@@ -3543,9 +3554,21 @@ function renderLedger() {
   $$('[data-ledger-filter]').forEach(function (b) {
     b.classList.toggle('on', b.getAttribute('data-ledger-filter') === f);
   });
+  var sb = $('#btnLedgerSort');
+  if (sb) {
+    sb.classList.toggle('on', !!sortMode);
+    sb.textContent = sortMode === 'desc' ? '¥↓' : sortMode === 'asc' ? '¥↑' : '⇅';
+    sb.title = sortMode === 'desc' ? '金额：从大到小' : sortMode === 'asc' ? '金额：从小到大' : '按金额排序';
+  }
 
   if (!shown.length) {
     html($('#txList'), '<div class="empty">这个月还没有记录<br><em>点右下角 ＋ 记一笔</em></div>');
+    return;
+  }
+
+  /* 按金额排序时不按天分组（否则组间还是时间序，排序没意义），日期挪到每行副标题里 */
+  if (sortMode) {
+    html($('#txList'), shown.map(function (t) { return txRow(t, true); }).join(''));
     return;
   }
 
@@ -3569,7 +3592,7 @@ function renderLedger() {
   html($('#txList'), out);
 }
 
-function txRow(t) {
+function txRow(t, showDate) {
   var isTf = t.type === 'transfer';
   var c = isTf ? { icon: '⇄', color: '#5b9cf5', name: '转账' } : L.catById(t.cat);
   var a = L.acctById(t.acct);
@@ -3583,6 +3606,8 @@ function txRow(t) {
   if (isTf) meta.push('→ ' + L.acctById(t.toAcct).name);
   if ((t.tags || []).length) meta.push(t.tags.join(' / '));
   var time = (t.time || '').slice(0, 5);
+  /* 按金额排序时没有日期分组了，把日期放回每一行（时间仍在右侧，不重复） */
+  if (showDate) meta.unshift(t.date.slice(5).replace('-', '.'));
 
   return '<div class="tx" data-tx="' + t.id + '">' +
     '<div class="tx-ic" style="background:' + hexA(c.color, .14) + ';color:' + c.color + '">' + c.icon + '</div>' +
@@ -5112,6 +5137,17 @@ function monthPicker() {
 }
 $('#btnLedgerMonth').addEventListener('click', monthPicker);
 $('#btnMonthPick').addEventListener('click', monthPicker);
+
+/* 明细排序：默认（按日期）→ 金额从大到小 → 金额从小到大 → 回到默认 */
+$('#btnLedgerSort').addEventListener('click', function () {
+  var order = ['', 'desc', 'asc'];
+  var tips = ['已恢复默认排序（按日期）', '金额：从大到小', '金额：从小到大'];
+  var i = order.indexOf(S.ledgerSort || '');
+  i = (i + 1) % order.length;
+  S.ledgerSort = order[i];
+  V.renderLedger();
+  toast(tips[i]);
+});
 
 /* ============================================================
    统计页交互

@@ -167,7 +167,10 @@ a{color:inherit;text-decoration:none}
 .card-hd .card-sub{font-size:11px;color:var(--ink3);margin-left:2px;white-space:nowrap}
 .card-hd .card-more{margin-left:auto;color:var(--ink3);font-size:16px;line-height:1}
 .card-hd .sp{margin-left:auto}
-.card-hd .hd-btns{display:flex;gap:6px;margin-left:auto}
+.card-hd .hd-btns{display:flex;gap:6px;margin-left:auto;align-items:center}
+/* 筛选 / 排序之间的一根细竖线 */
+.hd-sep{width:1px;height:14px;background:var(--line2);flex:none;margin:0 1px}
+.sort-btn{min-width:32px;justify-content:center;padding:0 7px;font-size:12px;letter-spacing:-.5px}
 
 .mini-btn{
   height:26px;padding:0 9px;border-radius:8px;

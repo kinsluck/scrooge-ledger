@@ -346,6 +346,17 @@ function monthPicker() {
 $('#btnLedgerMonth').addEventListener('click', monthPicker);
 $('#btnMonthPick').addEventListener('click', monthPicker);
 
+/* 明细排序：默认（按日期）→ 金额从大到小 → 金额从小到大 → 回到默认 */
+$('#btnLedgerSort').addEventListener('click', function () {
+  var order = ['', 'desc', 'asc'];
+  var tips = ['已恢复默认排序（按日期）', '金额：从大到小', '金额：从小到大'];
+  var i = order.indexOf(S.ledgerSort || '');
+  i = (i + 1) % order.length;
+  S.ledgerSort = order[i];
+  V.renderLedger();
+  toast(tips[i]);
+});
+
 /* ============================================================
    统计页交互
    ============================================================ */

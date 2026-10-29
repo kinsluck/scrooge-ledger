@@ -163,6 +163,7 @@ var S = {
   ledgerFilter: 'all',
   ledgerMonth: '',
   ledgerSearch: '',
+  ledgerSort: '',   /* '' 默认（按日期） | 'desc' 金额降序 | 'asc' 金额升序 */
   mgrType: 'expense', lastType: 'expense', isSeed: false,
   noSeed: false,
   tab: 'stats'
