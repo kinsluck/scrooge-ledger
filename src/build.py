@@ -1,11 +1,20 @@
 # -*- coding: utf-8 -*-
-"""把 book/parts/ 下的片段拼成单文件 HTML。"""
-import io, os
+"""把 src/parts/ 下的片段拼成单文件 HTML。
+
+输出文件名带版本号：史高治账本-v1.1.html
+（发布到 GitHub Pages 时用 SHIGUANG_OUT=index.html，Pages 只认固定的 index.html）
+"""
+import datetime
+import io, os, re
 from urllib.parse import quote
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-# 可用环境变量 SHIGUANG_OUT 指定输出路径（GitHub Pages 仓库里会输出成 index.html）
-OUT = os.environ.get('SHIGUANG_OUT') or os.path.join(os.path.dirname(HERE), '史高治账本.html')
+
+# 版本号：改这里，构建时会同步写进页面「关于」里的版本行 + 输出文件名
+VERSION = 'v1.1'
+
+OUT = os.environ.get('SHIGUANG_OUT') or os.path.join(
+    os.path.dirname(HERE), '史高治账本-%s.html' % VERSION)
 OUT = os.path.abspath(OUT)
 
 HTML_PARTS = ['01-head.html', '03-body.html']
@@ -37,6 +46,12 @@ def main():
     body = read('03-body.html')
     js = '\n\n'.join(read(p) for p in JS_PARTS)
 
+    # 版本号与构建日期统一由这里注入，源码里不用手工改日期
+    today = datetime.date.today().isoformat()
+    js, n = re.subn(r"var APP_VERSION = '[^']*';",
+                    "var APP_VERSION = '%s · %s';" % (VERSION, today), js, count=1)
+    assert n == 1, 'APP_VERSION 没找到，版本号注入失败'
+
     fav = '<link rel="icon" href="data:image/svg+xml,' + quote(COIN_SVG, safe='') + '">'
 
     head = head.replace('<!--FAVICON-->', fav)
@@ -50,7 +65,7 @@ def main():
 
     io.open(OUT, 'w', encoding='utf-8', newline='\n').write(head)
     size = os.path.getsize(OUT)
-    print('built %s  %.1f KB' % (os.path.basename(OUT), size / 1024.0))
+    print('built %s  %.1f KB  (%s)' % (os.path.basename(OUT), size / 1024.0, VERSION))
 
 
 if __name__ == '__main__':

@@ -55,9 +55,12 @@ src/
 ```
 
 ```bash
-python src/build.py                                  # 输出 ../史高治账本.html
-SHIGUANG_OUT=index.html python src/build.py          # 输出到当前目录的 index.html
+python src/build.py                          # 输出 ../史高治账本-<版本号>.html
+SHIGUANG_OUT=index.html python src/build.py  # 发布用，固定输出 index.html
 ```
+
+版本号在 `src/build.py` 顶部的 `VERSION`，改一处即可 —— 构建时会同时写进：
+输出文件名、页面「关于」里的版本行（自动带当天日期）。
 
 ## 数据说明
 
