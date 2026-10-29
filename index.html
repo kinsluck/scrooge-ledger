@@ -938,11 +938,12 @@ body.dragging::after{
         <div class="card-hd"><i class="dot"></i><b>导入账单</b><span class="card-sub">xlsx / csv</span></div>
         <div class="hint" style="margin-bottom:10px">
           支持从记账 App 导出的「收支账单」表格（日期 / 类型 / 金额 / 一级分类 / 账户 / 备注…），
-          也支持任意包含这些列的 CSV。直接把文件拖到页面上也可以。
+          也支持本应用导出的 Excel 报告（自动挑「消费明细」表）和 JSON 备份（整份恢复）。
+          直接把文件拖到页面上也可以。
         </div>
         <button class="btn gold" id="btnImportPick">选择文件导入</button>
         <div class="hint" style="margin-top:8px;text-align:center">解析在本地完成，文件不会被上传</div>
-        <input type="file" id="fileImport" accept=".xlsx,.xls,.csv,text/csv" hidden>
+        <input type="file" id="fileImport" accept=".xlsx,.xls,.csv,.json,text/csv,application/json" hidden>
       </div>
 
       <div class="card">
@@ -1226,7 +1227,7 @@ body.dragging::after{
 
 <!-- ================= 导入账单 ================= -->
 <div class="sheet" id="shImport" role="dialog" aria-modal="true" aria-label="导入账单">
-  <div class="sheet-hd"><b>导入账单</b><button class="x" data-close>✕</button></div>
+  <div class="sheet-hd"><b id="impTitle">导入账单</b><button class="x" data-close>✕</button></div>
   <div class="sheet-bd">
     <div id="impSummary" style="margin-bottom:12px"></div>
     <div id="impPreview" style="margin-bottom:12px"></div>
@@ -1250,7 +1251,7 @@ body.dragging::after{
     </label>
 
     <div class="hint" id="impNote"></div>
-    <div class="hint" style="margin-top:8px;color:var(--ink3)">
+    <div class="hint" id="impAcctTip" style="margin-top:8px;color:var(--ink3)">
       提示：导入的账单不带账户余额，所以「资产」页的净值是按累计结余推算的。
       想让净值准确，去「账户管理」把各账户的期初余额填上。
     </div>
@@ -1286,7 +1287,8 @@ body.dragging::after{
 (function () {
 'use strict';
 
-var APP_VERSION = 'v1.0 · 2026-10-26';
+/* 版本号与日期由 build.py 在构建时改写，改版本请改 src/build.py 顶部的 VERSION */
+var APP_VERSION = 'v1.1 · 2026-10-29';
 var KEY = 'shiguang-ledger-v1';
 var DAY = 86400000;
 
@@ -3135,18 +3137,28 @@ async function readXlsx(file) {
       return (+(/(\d+)/.exec(a) || [, 0])[1]) - (+(/(\d+)/.exec(b) || [, 0])[1]);
     });
   if (!sheets.length) throw new Error('这个 xlsx 里没有工作表');
-  var grid = parseSheet(await entryText(zip, sheets[0]), shared);
 
-  var sheetName = 'Sheet1';
+  /* 表名按 workbook.xml 里 <sheet> 的出现顺序取（与 sheet1.xml、sheet2.xml… 对应） */
+  var wbNames = [];
   var wbPath = names.filter(function (n) { return /^xl\/workbook\.xml$/i.test(n); })[0];
   if (wbPath) {
     try {
       var wd = new DOMParser().parseFromString(await entryText(zip, wbPath), 'application/xml');
-      var sh = wd.getElementsByTagName('sheet')[0];
-      if (sh) sheetName = sh.getAttribute('name') || sheetName;
+      var tags = wd.getElementsByTagName('sheet');
+      for (var i = 0; i < tags.length; i++) wbNames.push(tags[i].getAttribute('name') || ('Sheet' + (i + 1)));
     } catch (e) { }
   }
-  return { grid: grid, sheetName: sheetName };
+
+  /* 全部读出来 —— 多表文件（比如本应用导出的报告：消费报告 / 消费明细 / 统计数据）
+     只有其中一张是账单明细，交给 parseFile 去挑 */
+  var out = [];
+  for (var j = 0; j < sheets.length; j++) {
+    out.push({
+      name: wbNames[j] || ('Sheet' + (j + 1)),
+      grid: parseSheet(await entryText(zip, sheets[j]), shared)
+    });
+  }
+  return { sheets: out };
 }
 
 /* ---------------- CSV ---------------- */
@@ -3295,25 +3307,66 @@ function guessColor(name, seed) {
   return L.PALETTE[(h + (seed || 0)) % L.PALETTE.length];
 }
 
+/* ---------------- JSON 备份 ---------------- */
+async function parseBackup(file) {
+  var txt = await file.text();
+  var obj;
+  try { obj = JSON.parse(txt); } catch (e) { throw new Error('JSON 解析失败，文件可能不完整'); }
+  if (!obj || !Array.isArray(obj.txns)) throw new Error('这不像是账本备份（缺少 txns 记录数组）');
+
+  var txns = obj.txns.filter(function (t) { return t && t.date && t.amount != null && t.type; });
+  if (!txns.length) throw new Error('备份里没有可恢复的记录');
+  var dates = txns.map(function (t) { return t.date; }).sort();
+
+  return {
+    kind: 'backup',
+    data: obj,
+    fileName: file.name || '备份.json',
+    nTxns: txns.length,
+    nCats: (obj.cats || []).length,
+    nAccts: (obj.accts || []).length,
+    nBudgets: Object.keys(obj.budgets || {}).length,
+    exportedAt: obj.exportedAt || '',
+    from: dates[0],
+    to: dates[dates.length - 1]
+  };
+}
+
 /* ---------------- 主流程：解析成待导入记录 ---------------- */
 async function parseFile(file) {
   var name = (file.name || '').toLowerCase();
-  var grid;
+  if (/\.json$/.test(name)) return await parseBackup(file);
+
+  var cands = [];
   if (/\.xlsx?$/.test(name)) {
-    var r = await readXlsx(file);
-    grid = r.grid;
+    cands = (await readXlsx(file)).sheets;
   } else if (/\.csv$/.test(name) || /\.txt$/.test(name)) {
     var text = await file.text();
-    grid = readCsv(text);
+    /* 有些系统会把备份存成 .txt，嗅一下内容 */
+    if (/^\s*\{/.test(text) && text.indexOf('"txns"') >= 0) return await parseBackup(file);
+    cands = [{ name: 'CSV', grid: readCsv(text) }];
   } else {
-    throw new Error('只支持 .xlsx / .xls / .csv 文件');
+    throw new Error('只支持 .xlsx / .xls / .csv / .json 文件');
   }
+  if (!cands.length) throw new Error('文件里没有读到内容');
 
-  if (!grid || !grid.length) throw new Error('文件里没有读到内容');
+  /* 多表时逐张试：谁能认出表头、且表头下「有日期有金额」的行最多，就用谁 */
+  var pick = null;
+  cands.forEach(function (c) {
+    if (!c.grid || !c.grid.length) return;
+    var h = findHeader(c.grid);
+    if (!h) return;
+    var n = 0;
+    for (var i = h.idx + 1; i < c.grid.length; i++) {
+      var g = c.grid[i];
+      if (!g) continue;
+      if (parseDateCell(g[h.map.date]) && parseAmount(g[h.map.amount])) n++;
+    }
+    if (n > 0 && (!pick || n > pick.n)) pick = { grid: c.grid, head: h, name: c.name, n: n };
+  });
+  if (!pick) throw new Error('没找到表头（需要至少有「日期 / 类型 / 金额」中的两三个列名）');
 
-  var head = findHeader(grid);
-  if (!head) throw new Error('没找到表头（需要至少有「日期 / 类型 / 金额」中的两三个列名）');
-
+  var grid = pick.grid, head = pick.head;
   var map = head.map;
   var rows = [];
   for (var i = head.idx + 1; i < grid.length; i++) {
@@ -3367,9 +3420,10 @@ async function parseFile(file) {
 
   var dates = rows.map(function (r) { return r.date; });
   return {
+    kind: 'rows',
     rows: rows,
     fileName: file.name || '账单',
-    sheetName: '',
+    sheetName: pick.name,
     from: dates[0],
     to: dates[dates.length - 1],
     cols: Object.keys(map).length
@@ -5562,6 +5616,40 @@ function doImport(file) {
 }
 
 function paintImport(res) {
+  var isBackup = res.kind === 'backup';
+
+  /* 备份恢复是整份替换，追加/覆盖、默认账户、去重这些都无意义 */
+  $('#impTitle').textContent = isBackup ? '恢复备份' : '导入账单';
+  $('#btnImportConfirm').textContent = isBackup ? '恢复并覆盖' : '确认导入';
+  $('#impMode').closest('.field').style.display = isBackup ? 'none' : '';
+  $('#impDefaultAcct').closest('.field').style.display = isBackup ? 'none' : '';
+  $('#impDup').closest('label').style.display = isBackup ? 'none' : '';
+  $('#impAcctTip').style.display = isBackup ? 'none' : '';
+
+  if (isBackup) {
+    function cell(lbl, v) {
+      return '<div class="stat"><span class="lbl">' + lbl + '</span><b class="v sm">' + v + '</b></div>';
+    }
+    $('#impSummary').innerHTML =
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">' +
+        '<div style="width:40px;height:40px;border-radius:12px;background:rgba(242,201,76,.14);color:var(--gold);' +
+          'display:flex;align-items:center;justify-content:center;font-size:19px">⟲</div>' +
+        '<div><b style="font-size:14px">备份里有 ' + res.nTxns + ' 条记录</b>' +
+          '<div class="hint">' + esc(res.fileName) + ' · ' + res.from + ' → ' + res.to + '</div></div>' +
+      '</div>' +
+      '<div class="stat-grid">' +
+        cell('分类', res.nCats + ' 个') +
+        cell('账户', res.nAccts + ' 个') +
+        cell('预算', res.nBudgets + ' 项') +
+        cell('导出时间', res.exportedAt ? res.exportedAt.slice(0, 10) : '—') +
+      '</div>';
+    $('#impPreview').innerHTML = '';
+    $('#impNote').innerHTML = '恢复会<b>整份替换</b>当前账本（现有 <b>' + S.txns.length +
+      '</b> 条记录，以及分类、账户、预算设置）。<br>' +
+      '<span style="color:var(--up)">此操作不可撤销，建议先「导出 JSON 备份」留个底。</span>';
+    return;
+  }
+
   var types = { expense: 0, income: 0, transfer: 0 };
   var catSet = {};
   res.rows.forEach(function (r) { types[r.type] = (types[r.type] || 0) + 1; catSet[r.cat1] = 1; });
@@ -5620,6 +5708,33 @@ $('#fileImport').addEventListener('change', function () {
 });
 $('#btnImportConfirm').addEventListener('click', function () {
   if (!pendingImport) return;
+
+  /* 备份恢复：整份替换 */
+  if (pendingImport.kind === 'backup') {
+    var b = pendingImport.data;
+    var backup = pendingImport;
+    pendingImport = null;
+    closeSheet();
+    if (!confirm('确认用这份备份覆盖当前账本？\n\n备份 ' + backup.nTxns + ' 条记录，当前 ' +
+      S.txns.length + ' 条。此操作不可撤销。')) return;
+    S.cats = (b.cats && b.cats.length) ? b.cats : S.cats;
+    S.accts = (b.accts && b.accts.length) ? b.accts : S.accts;
+    S.txns = b.txns.filter(function (t) { return t && t.date && t.amount != null && t.type; });
+    S.budgets = b.budgets || {};
+    S.recurring = b.recurring || [];
+    S.isSeed = false;
+    S.noSeed = !!b.noSeed;
+    S.ledgerMonth = L.monthKey(L.latestDate() || L.todayISO());
+    S.calKey = S.ledgerMonth;
+    S.ledgerSearch = ''; S.ledgerSort = '';
+    L.persist();
+    S.tab = 'stats';
+    V.switchTab('stats');
+    V.renderAll();
+    toast('已从备份恢复 ' + S.txns.length + ' 条记录');
+    return;
+  }
+
   var mode = $('#impMode').getAttribute('data-sel') || 'append';
   var r = IMP.importRows(pendingImport.rows, {
     mode: mode,

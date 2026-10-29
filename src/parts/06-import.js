@@ -128,18 +128,28 @@ async function readXlsx(file) {
       return (+(/(\d+)/.exec(a) || [, 0])[1]) - (+(/(\d+)/.exec(b) || [, 0])[1]);
     });
   if (!sheets.length) throw new Error('这个 xlsx 里没有工作表');
-  var grid = parseSheet(await entryText(zip, sheets[0]), shared);
 
-  var sheetName = 'Sheet1';
+  /* 表名按 workbook.xml 里 <sheet> 的出现顺序取（与 sheet1.xml、sheet2.xml… 对应） */
+  var wbNames = [];
   var wbPath = names.filter(function (n) { return /^xl\/workbook\.xml$/i.test(n); })[0];
   if (wbPath) {
     try {
       var wd = new DOMParser().parseFromString(await entryText(zip, wbPath), 'application/xml');
-      var sh = wd.getElementsByTagName('sheet')[0];
-      if (sh) sheetName = sh.getAttribute('name') || sheetName;
+      var tags = wd.getElementsByTagName('sheet');
+      for (var i = 0; i < tags.length; i++) wbNames.push(tags[i].getAttribute('name') || ('Sheet' + (i + 1)));
     } catch (e) { }
   }
-  return { grid: grid, sheetName: sheetName };
+
+  /* 全部读出来 —— 多表文件（比如本应用导出的报告：消费报告 / 消费明细 / 统计数据）
+     只有其中一张是账单明细，交给 parseFile 去挑 */
+  var out = [];
+  for (var j = 0; j < sheets.length; j++) {
+    out.push({
+      name: wbNames[j] || ('Sheet' + (j + 1)),
+      grid: parseSheet(await entryText(zip, sheets[j]), shared)
+    });
+  }
+  return { sheets: out };
 }
 
 /* ---------------- CSV ---------------- */
@@ -288,25 +298,66 @@ function guessColor(name, seed) {
   return L.PALETTE[(h + (seed || 0)) % L.PALETTE.length];
 }
 
+/* ---------------- JSON 备份 ---------------- */
+async function parseBackup(file) {
+  var txt = await file.text();
+  var obj;
+  try { obj = JSON.parse(txt); } catch (e) { throw new Error('JSON 解析失败，文件可能不完整'); }
+  if (!obj || !Array.isArray(obj.txns)) throw new Error('这不像是账本备份（缺少 txns 记录数组）');
+
+  var txns = obj.txns.filter(function (t) { return t && t.date && t.amount != null && t.type; });
+  if (!txns.length) throw new Error('备份里没有可恢复的记录');
+  var dates = txns.map(function (t) { return t.date; }).sort();
+
+  return {
+    kind: 'backup',
+    data: obj,
+    fileName: file.name || '备份.json',
+    nTxns: txns.length,
+    nCats: (obj.cats || []).length,
+    nAccts: (obj.accts || []).length,
+    nBudgets: Object.keys(obj.budgets || {}).length,
+    exportedAt: obj.exportedAt || '',
+    from: dates[0],
+    to: dates[dates.length - 1]
+  };
+}
+
 /* ---------------- 主流程：解析成待导入记录 ---------------- */
 async function parseFile(file) {
   var name = (file.name || '').toLowerCase();
-  var grid;
+  if (/\.json$/.test(name)) return await parseBackup(file);
+
+  var cands = [];
   if (/\.xlsx?$/.test(name)) {
-    var r = await readXlsx(file);
-    grid = r.grid;
+    cands = (await readXlsx(file)).sheets;
   } else if (/\.csv$/.test(name) || /\.txt$/.test(name)) {
     var text = await file.text();
-    grid = readCsv(text);
+    /* 有些系统会把备份存成 .txt，嗅一下内容 */
+    if (/^\s*\{/.test(text) && text.indexOf('"txns"') >= 0) return await parseBackup(file);
+    cands = [{ name: 'CSV', grid: readCsv(text) }];
   } else {
-    throw new Error('只支持 .xlsx / .xls / .csv 文件');
+    throw new Error('只支持 .xlsx / .xls / .csv / .json 文件');
   }
+  if (!cands.length) throw new Error('文件里没有读到内容');
 
-  if (!grid || !grid.length) throw new Error('文件里没有读到内容');
+  /* 多表时逐张试：谁能认出表头、且表头下「有日期有金额」的行最多，就用谁 */
+  var pick = null;
+  cands.forEach(function (c) {
+    if (!c.grid || !c.grid.length) return;
+    var h = findHeader(c.grid);
+    if (!h) return;
+    var n = 0;
+    for (var i = h.idx + 1; i < c.grid.length; i++) {
+      var g = c.grid[i];
+      if (!g) continue;
+      if (parseDateCell(g[h.map.date]) && parseAmount(g[h.map.amount])) n++;
+    }
+    if (n > 0 && (!pick || n > pick.n)) pick = { grid: c.grid, head: h, name: c.name, n: n };
+  });
+  if (!pick) throw new Error('没找到表头（需要至少有「日期 / 类型 / 金额」中的两三个列名）');
 
-  var head = findHeader(grid);
-  if (!head) throw new Error('没找到表头（需要至少有「日期 / 类型 / 金额」中的两三个列名）');
-
+  var grid = pick.grid, head = pick.head;
   var map = head.map;
   var rows = [];
   for (var i = head.idx + 1; i < grid.length; i++) {
@@ -360,9 +411,10 @@ async function parseFile(file) {
 
   var dates = rows.map(function (r) { return r.date; });
   return {
+    kind: 'rows',
     rows: rows,
     fileName: file.name || '账单',
-    sheetName: '',
+    sheetName: pick.name,
     from: dates[0],
     to: dates[dates.length - 1],
     cols: Object.keys(map).length

@@ -770,6 +770,40 @@ function doImport(file) {
 }
 
 function paintImport(res) {
+  var isBackup = res.kind === 'backup';
+
+  /* 备份恢复是整份替换，追加/覆盖、默认账户、去重这些都无意义 */
+  $('#impTitle').textContent = isBackup ? '恢复备份' : '导入账单';
+  $('#btnImportConfirm').textContent = isBackup ? '恢复并覆盖' : '确认导入';
+  $('#impMode').closest('.field').style.display = isBackup ? 'none' : '';
+  $('#impDefaultAcct').closest('.field').style.display = isBackup ? 'none' : '';
+  $('#impDup').closest('label').style.display = isBackup ? 'none' : '';
+  $('#impAcctTip').style.display = isBackup ? 'none' : '';
+
+  if (isBackup) {
+    function cell(lbl, v) {
+      return '<div class="stat"><span class="lbl">' + lbl + '</span><b class="v sm">' + v + '</b></div>';
+    }
+    $('#impSummary').innerHTML =
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">' +
+        '<div style="width:40px;height:40px;border-radius:12px;background:rgba(242,201,76,.14);color:var(--gold);' +
+          'display:flex;align-items:center;justify-content:center;font-size:19px">⟲</div>' +
+        '<div><b style="font-size:14px">备份里有 ' + res.nTxns + ' 条记录</b>' +
+          '<div class="hint">' + esc(res.fileName) + ' · ' + res.from + ' → ' + res.to + '</div></div>' +
+      '</div>' +
+      '<div class="stat-grid">' +
+        cell('分类', res.nCats + ' 个') +
+        cell('账户', res.nAccts + ' 个') +
+        cell('预算', res.nBudgets + ' 项') +
+        cell('导出时间', res.exportedAt ? res.exportedAt.slice(0, 10) : '—') +
+      '</div>';
+    $('#impPreview').innerHTML = '';
+    $('#impNote').innerHTML = '恢复会<b>整份替换</b>当前账本（现有 <b>' + S.txns.length +
+      '</b> 条记录，以及分类、账户、预算设置）。<br>' +
+      '<span style="color:var(--up)">此操作不可撤销，建议先「导出 JSON 备份」留个底。</span>';
+    return;
+  }
+
   var types = { expense: 0, income: 0, transfer: 0 };
   var catSet = {};
   res.rows.forEach(function (r) { types[r.type] = (types[r.type] || 0) + 1; catSet[r.cat1] = 1; });
@@ -828,6 +862,33 @@ $('#fileImport').addEventListener('change', function () {
 });
 $('#btnImportConfirm').addEventListener('click', function () {
   if (!pendingImport) return;
+
+  /* 备份恢复：整份替换 */
+  if (pendingImport.kind === 'backup') {
+    var b = pendingImport.data;
+    var backup = pendingImport;
+    pendingImport = null;
+    closeSheet();
+    if (!confirm('确认用这份备份覆盖当前账本？\n\n备份 ' + backup.nTxns + ' 条记录，当前 ' +
+      S.txns.length + ' 条。此操作不可撤销。')) return;
+    S.cats = (b.cats && b.cats.length) ? b.cats : S.cats;
+    S.accts = (b.accts && b.accts.length) ? b.accts : S.accts;
+    S.txns = b.txns.filter(function (t) { return t && t.date && t.amount != null && t.type; });
+    S.budgets = b.budgets || {};
+    S.recurring = b.recurring || [];
+    S.isSeed = false;
+    S.noSeed = !!b.noSeed;
+    S.ledgerMonth = L.monthKey(L.latestDate() || L.todayISO());
+    S.calKey = S.ledgerMonth;
+    S.ledgerSearch = ''; S.ledgerSort = '';
+    L.persist();
+    S.tab = 'stats';
+    V.switchTab('stats');
+    V.renderAll();
+    toast('已从备份恢复 ' + S.txns.length + ' 条记录');
+    return;
+  }
+
   var mode = $('#impMode').getAttribute('data-sel') || 'append';
   var r = IMP.importRows(pendingImport.rows, {
     mode: mode,

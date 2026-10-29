@@ -265,11 +265,12 @@
         <div class="card-hd"><i class="dot"></i><b>导入账单</b><span class="card-sub">xlsx / csv</span></div>
         <div class="hint" style="margin-bottom:10px">
           支持从记账 App 导出的「收支账单」表格（日期 / 类型 / 金额 / 一级分类 / 账户 / 备注…），
-          也支持任意包含这些列的 CSV。直接把文件拖到页面上也可以。
+          也支持本应用导出的 Excel 报告（自动挑「消费明细」表）和 JSON 备份（整份恢复）。
+          直接把文件拖到页面上也可以。
         </div>
         <button class="btn gold" id="btnImportPick">选择文件导入</button>
         <div class="hint" style="margin-top:8px;text-align:center">解析在本地完成，文件不会被上传</div>
-        <input type="file" id="fileImport" accept=".xlsx,.xls,.csv,text/csv" hidden>
+        <input type="file" id="fileImport" accept=".xlsx,.xls,.csv,.json,text/csv,application/json" hidden>
       </div>
 
       <div class="card">
@@ -553,7 +554,7 @@
 
 <!-- ================= 导入账单 ================= -->
 <div class="sheet" id="shImport" role="dialog" aria-modal="true" aria-label="导入账单">
-  <div class="sheet-hd"><b>导入账单</b><button class="x" data-close>✕</button></div>
+  <div class="sheet-hd"><b id="impTitle">导入账单</b><button class="x" data-close>✕</button></div>
   <div class="sheet-bd">
     <div id="impSummary" style="margin-bottom:12px"></div>
     <div id="impPreview" style="margin-bottom:12px"></div>
@@ -577,7 +578,7 @@
     </label>
 
     <div class="hint" id="impNote"></div>
-    <div class="hint" style="margin-top:8px;color:var(--ink3)">
+    <div class="hint" id="impAcctTip" style="margin-top:8px;color:var(--ink3)">
       提示：导入的账单不带账户余额，所以「资产」页的净值是按累计结余推算的。
       想让净值准确，去「账户管理」把各账户的期初余额填上。
     </div>
