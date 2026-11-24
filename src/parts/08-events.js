@@ -855,6 +855,83 @@ $$('#impMode button').forEach(function (b) {
   });
 });
 
+/* ---------- 粘贴信用卡账单文本 ---------- */
+var billPending = null;
+
+function paintBillPreview(res) {
+  var m = res.meta || {}, st = res.stats || {};
+  var net = (st.expense || 0) + (st.refund || 0) + (st.install || 0);
+  var has = m.amount != null;
+  var ok = has && Math.abs(net - m.amount) < 0.02;
+
+  var head = '<div class="bill-sum">' +
+    '<div class="row1"><b>' + (has ? L.yuan(m.amount) : L.yuan(net)) + '</b><span>本期应还</span></div>' +
+    (m.from ? '<div class="line">账单周期 ' + m.from.replace(/-/g, '/') + ' — ' + m.to.replace(/-/g, '/') +
+      (m.due ? '　·　到期 ' + m.due.replace(/-/g, '/') : '') + '</div>' : '') +
+    '<div class="kpis">' +
+      '<i>消费<b>' + st.nExp + ' 笔</b></i>' +
+      '<i>退款<b>' + st.nRef + ' 笔</b></i>' +
+      '<i>分期<b>' + st.nIns + ' 笔</b></i>' +
+      '<i>还款<b>' + st.nRep + ' 笔</b></i>' +
+    '</div>';
+
+  if (has) {
+    head += '<div class="line">' + (ok
+      ? '<span class="ok">✓ 对得上</span>　消费 ' + L.yuan(st.expense) + ' ＋ 退款 ' + L.yuan(st.refund) +
+        ' ＋ 分期 ' + L.yuan(st.install) + ' ＝ ' + L.yuan(net)
+      : '<span class="bad">⚠ 差 ' + L.yuan(m.amount - net) + '</span>　消费＋退款＋分期 = ' + L.yuan(net) +
+        '，账单应还 ' + L.yuan(m.amount) + '（可能账单里有本期之外的调整项）') + '</div>';
+  }
+  head += '<div class="line" style="color:var(--ink3)">还款是还钱不是消费，不会导入账本。</div>';
+  head += '</div>';
+
+  head += '<div class="field" style="margin-top:11px">' +
+    '<div class="fl">这几笔记到哪个账户</div>' +
+    '<input class="inp" id="billAcct" value="信用卡" maxlength="14">' +
+    '</div>' +
+    '<div class="hint">' + (S.isSeed ? '当前是示例数据，导入会先清空示例。' : '当前已有 ' + S.txns.length + ' 条记录，同日期同金额同备注的会自动跳过。') + '</div>';
+
+  $('#billPreview').innerHTML = head;
+}
+
+$('#btnPasteBill').addEventListener('click', function () {
+  billPending = null;
+  $('#taBill').value = '';
+  $('#billPreview').innerHTML = '';
+  $('#btnBillParse').textContent = '解析';
+  openSheet('#shPasteBill');
+  setTimeout(function () { var t = $('#taBill'); if (t) t.focus(); }, 260);
+});
+
+$('#btnBillParse').addEventListener('click', function () {
+  if (billPending) {
+    var res = billPending;
+    var acct = (($('#billAcct') && $('#billAcct').value) || '信用卡').trim();
+    var r = IMP.importRows(res.rows, {
+      mode: S.isSeed ? 'replace' : 'append',
+      skipDup: true,
+      defaultAcct: acct
+    });
+    billPending = null;
+    closeSheet();
+    S.tab = 'stats';
+    V.switchTab('stats');
+    toast('导入 ' + r.added + ' 笔' + (r.dup ? '，跳过 ' + r.dup + ' 笔重复' : '') +
+      (r.accts ? '，已新建账户「' + acct + '」' : ''));
+    return;
+  }
+
+  var txt = $('#taBill').value;
+  if (!txt || !txt.trim()) { toast('先把账单正文粘贴进来'); return; }
+  var out;
+  try { out = window.__BILL.parse(txt); }
+  catch (e) { toast(e.message); return; }
+  if (!out.rows.length) { toast('只解析到还款记录，没有可导入的消费'); return; }
+  billPending = out;
+  paintBillPreview(out);
+  $('#btnBillParse').textContent = '确认导入 ' + out.rows.length + ' 笔';
+});
+
 $('#btnImportPick').addEventListener('click', function () { $('#fileImport').click(); });
 $('#fileImport').addEventListener('change', function () {
   doImport(this.files && this.files[0]);

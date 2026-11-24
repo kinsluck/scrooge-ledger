@@ -262,14 +262,18 @@
     <div class="pad">
 <div class="card" id="meHero"></div>
       <div class="card">
-        <div class="card-hd"><i class="dot"></i><b>导入账单</b><span class="card-sub">xlsx / csv</span></div>
+        <div class="card-hd"><i class="dot"></i><b>导入账单</b><span class="card-sub">文件 / 粘贴</span></div>
         <div class="hint" style="margin-bottom:10px">
           支持从记账 App 导出的「收支账单」表格（日期 / 类型 / 金额 / 一级分类 / 账户 / 备注…），
           也支持本应用导出的 Excel 报告（自动挑「消费明细」表）和 JSON 备份（整份恢复）。
           直接把文件拖到页面上也可以。
         </div>
         <button class="btn gold" id="btnImportPick">选择文件导入</button>
-        <div class="hint" style="margin-top:8px;text-align:center">解析在本地完成，文件不会被上传</div>
+        <button class="btn ghost" id="btnPasteBill" style="margin-top:8px">粘贴信用卡账单文本</button>
+        <div class="hint" style="margin-top:8px;text-align:center">
+          解析在本地完成，文件不会被上传<br>
+          信用卡邮件账单可以在邮箱里全选复制正文，用上面的「粘贴」导入
+        </div>
         <input type="file" id="fileImport" accept=".xlsx,.xls,.csv,.json,text/csv,application/json" hidden>
       </div>
 
@@ -553,6 +557,21 @@
 </div>
 
 <!-- ================= 导入账单 ================= -->
+<div class="sheet" id="shPasteBill" role="dialog" aria-modal="true" aria-label="粘贴账单文本">
+  <div class="sheet-hd"><b>粘贴信用卡账单</b><button class="x" data-close>✕</button></div>
+  <div class="sheet-bd">
+    <div class="hint" style="margin-bottom:9px">
+      在邮箱里打开账单邮件 → <b>全选复制正文</b> → 粘到下面。只在本机解析，不会上传。
+    </div>
+    <textarea class="ta-bill" id="taBill" placeholder="2026/04/26-2026/05/25&#10;¥ 55,000.00&#10;¥ 9,282.94&#10;……&#10;还款&#10;0427&#10;掌上生活还款&#10;¥ -7,000.00&#10;6969"></textarea>
+    <div id="billPreview" style="margin-top:11px"></div>
+  </div>
+  <div class="sheet-ft">
+    <button class="btn ghost" data-close>取消</button>
+    <button class="btn gold" id="btnBillParse">解析</button>
+  </div>
+</div>
+
 <div class="sheet" id="shImport" role="dialog" aria-modal="true" aria-label="导入账单">
   <div class="sheet-hd"><b id="impTitle">导入账单</b><button class="x" data-close>✕</button></div>
   <div class="sheet-bd">
