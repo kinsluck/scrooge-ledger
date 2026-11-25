@@ -403,6 +403,21 @@ a{color:inherit;text-decoration:none}
 }
 .fab:active{transform:scale(.94)}
 
+/* 账本页：分类筛选条 */
+.cat-filter{
+  display:flex;align-items:center;gap:7px;
+  margin:0 0 9px;padding:7px 10px;border-radius:10px;
+  background:rgba(242,201,76,.10);border:1px solid rgba(242,201,76,.26);
+  font-size:12px;color:var(--ink2);
+}
+.cat-filter[hidden]{display:none}
+.cat-filter b{font-weight:650;color:var(--gold)}
+.cat-filter .cnt{color:var(--ink3);font-size:11px;margin-left:auto}
+.cat-filter .x{
+  color:var(--ink3);font-size:14px;line-height:1;padding:2px 4px;margin-left:4px;
+}
+.cat-filter .x:active{color:var(--ink)}
+
 /* ---------- 弹层 ---------- */
 .backdrop{
   position:fixed;inset:0;z-index:60;
@@ -732,6 +747,7 @@ body.dragging::after{
           <input class="inp" id="ledgerSearch" placeholder="搜索备注、分类、金额…">
           <button class="mini-btn" id="btnSearchClose">取消</button>
         </div>
+        <div class="cat-filter" id="ledgerCatBar" hidden></div>
         <div id="txList"></div>
       </div>
     </div>
@@ -1329,7 +1345,7 @@ body.dragging::after{
 'use strict';
 
 /* 版本号与日期由 build.py 在构建时改写，改版本请改 src/build.py 顶部的 VERSION */
-var APP_VERSION = 'v1.2 · 2026-11-24';
+var APP_VERSION = 'v1.3 · 2026-11-25';
 var KEY = 'shiguang-ledger-v1';
 var DAY = 86400000;
 
@@ -1488,6 +1504,7 @@ var S = {
   ledgerFilter: 'all',
   ledgerMonth: '',
   ledgerSearch: '',
+  ledgerCat: '',
   ledgerSort: '',   /* '' 默认（按日期） | 'desc' 金额降序 | 'asc' 金额升序 */
   mgrType: 'expense', lastType: 'expense', isSeed: false,
   noSeed: false,
@@ -3627,6 +3644,10 @@ function renderLedger() {
     if (f === 'all') return true;
     return t.type === f;
   });
+  /* 从统计页点分类跳过来时，这里按分类兜住 —— 只切月份不筛分类，看到的就是当月全部账 */
+  if (S.ledgerCat) {
+    shown = shown.filter(function (t) { return t.cat === S.ledgerCat; });
+  }
   if (S.ledgerSearch) {
     var q = S.ledgerSearch.toLowerCase();
     shown = shown.filter(function (t) {
@@ -3656,8 +3677,24 @@ function renderLedger() {
     sb.title = sortMode === 'desc' ? '金额：从大到小' : sortMode === 'asc' ? '金额：从小到大' : '按金额排序';
   }
 
+  var catBar = document.getElementById('ledgerCatBar');
+  if (catBar) {
+    if (S.ledgerCat) {
+      var cc = L.catById(S.ledgerCat);
+      catBar.hidden = false;
+      catBar.innerHTML = '<span>只看</span><b>' + esc(cc.icon + ' ' + cc.name) + '</b>' +
+        '<span class="cnt">' + shown.length + ' 笔</span>' +
+        '<button class="x" id="btnClearCat" aria-label="清除分类筛选">✕</button>';
+    } else {
+      catBar.hidden = true;
+      catBar.innerHTML = '';
+    }
+  }
+
   if (!shown.length) {
-    html($('#txList'), '<div class="empty">这个月还没有记录<br><em>点右下角 ＋ 记一笔</em></div>');
+    html($('#txList'), S.ledgerCat
+      ? '<div class="empty">这个月没有「' + esc(L.catById(S.ledgerCat).name) + '」的记录<br><em>换个分类，或点上方 ✕ 取消筛选</em></div>'
+      : '<div class="empty">这个月还没有记录<br><em>点右下角 ＋ 记一笔</em></div>');
     return;
   }
 
@@ -5381,10 +5418,12 @@ document.addEventListener('click', function (e) {
     var list = L.rangeTxns(rg).filter(function (x) { return x.cat === cid; })
       .sort(function (a, b) { return b.amount - a.amount; });
     S.tab = 'ledger'; V.switchTab('ledger');
-    S.ledgerFilter = 'all'; S.ledgerSearch = '';
+    S.ledgerFilter = 'all'; S.ledgerSearch = ''; S.ledgerSort = '';
+    S.ledgerCat = cid;
     S.ledgerMonth = L.monthKey(list[0] ? list[0].date : L.latestDate());
+    var sw = $('#ledgerSearchWrap'); if (sw) sw.hidden = true;
     V.renderAll();
-    toast('已跳到「' + L.catById(cid).name + '」最近一条所在月份');
+    toast('已筛出「' + L.catById(cid).name + '」共 ' + list.length + ' 笔');
     return;
   }
 
@@ -5572,6 +5611,13 @@ $('#btnFilterReset').addEventListener('click', function () {
   fTmp = { from: '', to: '', accts: [], cats: [], tags: [], range: 'month' };
   $('#fFrom').value = ''; $('#fTo').value = '';
   paintFilter();
+});
+
+document.addEventListener('click', function (e) {
+  var b = e.target.closest && e.target.closest('#btnClearCat');
+  if (!b) return;
+  S.ledgerCat = '';
+  V.renderLedger();
 });
 
 /* ============================================================

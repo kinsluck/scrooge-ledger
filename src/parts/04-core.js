@@ -5,7 +5,7 @@
 'use strict';
 
 /* 版本号与日期由 build.py 在构建时改写，改版本请改 src/build.py 顶部的 VERSION */
-var APP_VERSION = 'v1.2 · 2026-11-24';
+var APP_VERSION = 'v1.3 · 2026-11-25';
 var KEY = 'shiguang-ledger-v1';
 var DAY = 86400000;
 
@@ -164,6 +164,7 @@ var S = {
   ledgerFilter: 'all',
   ledgerMonth: '',
   ledgerSearch: '',
+  ledgerCat: '',
   ledgerSort: '',   /* '' 默认（按日期） | 'desc' 金额降序 | 'asc' 金额升序 */
   mgrType: 'expense', lastType: 'expense', isSeed: false,
   noSeed: false,

@@ -291,10 +291,12 @@ document.addEventListener('click', function (e) {
     var list = L.rangeTxns(rg).filter(function (x) { return x.cat === cid; })
       .sort(function (a, b) { return b.amount - a.amount; });
     S.tab = 'ledger'; V.switchTab('ledger');
-    S.ledgerFilter = 'all'; S.ledgerSearch = '';
+    S.ledgerFilter = 'all'; S.ledgerSearch = ''; S.ledgerSort = '';
+    S.ledgerCat = cid;
     S.ledgerMonth = L.monthKey(list[0] ? list[0].date : L.latestDate());
+    var sw = $('#ledgerSearchWrap'); if (sw) sw.hidden = true;
     V.renderAll();
-    toast('已跳到「' + L.catById(cid).name + '」最近一条所在月份');
+    toast('已筛出「' + L.catById(cid).name + '」共 ' + list.length + ' 笔');
     return;
   }
 
@@ -482,6 +484,13 @@ $('#btnFilterReset').addEventListener('click', function () {
   fTmp = { from: '', to: '', accts: [], cats: [], tags: [], range: 'month' };
   $('#fFrom').value = ''; $('#fTo').value = '';
   paintFilter();
+});
+
+document.addEventListener('click', function (e) {
+  var b = e.target.closest && e.target.closest('#btnClearCat');
+  if (!b) return;
+  S.ledgerCat = '';
+  V.renderLedger();
 });
 
 /* ============================================================

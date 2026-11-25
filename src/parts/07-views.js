@@ -55,6 +55,10 @@ function renderLedger() {
     if (f === 'all') return true;
     return t.type === f;
   });
+  /* 从统计页点分类跳过来时，这里按分类兜住 —— 只切月份不筛分类，看到的就是当月全部账 */
+  if (S.ledgerCat) {
+    shown = shown.filter(function (t) { return t.cat === S.ledgerCat; });
+  }
   if (S.ledgerSearch) {
     var q = S.ledgerSearch.toLowerCase();
     shown = shown.filter(function (t) {
@@ -84,8 +88,24 @@ function renderLedger() {
     sb.title = sortMode === 'desc' ? '金额：从大到小' : sortMode === 'asc' ? '金额：从小到大' : '按金额排序';
   }
 
+  var catBar = document.getElementById('ledgerCatBar');
+  if (catBar) {
+    if (S.ledgerCat) {
+      var cc = L.catById(S.ledgerCat);
+      catBar.hidden = false;
+      catBar.innerHTML = '<span>只看</span><b>' + esc(cc.icon + ' ' + cc.name) + '</b>' +
+        '<span class="cnt">' + shown.length + ' 笔</span>' +
+        '<button class="x" id="btnClearCat" aria-label="清除分类筛选">✕</button>';
+    } else {
+      catBar.hidden = true;
+      catBar.innerHTML = '';
+    }
+  }
+
   if (!shown.length) {
-    html($('#txList'), '<div class="empty">这个月还没有记录<br><em>点右下角 ＋ 记一笔</em></div>');
+    html($('#txList'), S.ledgerCat
+      ? '<div class="empty">这个月没有「' + esc(L.catById(S.ledgerCat).name) + '」的记录<br><em>换个分类，或点上方 ✕ 取消筛选</em></div>'
+      : '<div class="empty">这个月还没有记录<br><em>点右下角 ＋ 记一笔</em></div>');
     return;
   }
 

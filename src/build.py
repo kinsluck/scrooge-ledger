@@ -11,7 +11,7 @@ from urllib.parse import quote
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 # 版本号：改这里，构建时会同步写进页面「关于」里的版本行 + 输出文件名
-VERSION = 'v1.2'
+VERSION = 'v1.3'
 
 OUT = os.environ.get('SHIGUANG_OUT') or os.path.join(
     os.path.dirname(HERE), '史高治账本-%s.html' % VERSION)
